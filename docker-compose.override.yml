@@ -1,0 +1,85 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: vendas-postgres
+    environment:
+      POSTGRES_DB: portal_b2b
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres_admin_local
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./portal-b2b-database/scripts:/docker-entrypoint-initdb.d:ro
+    networks:
+      - portal-b2b-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d portal_b2b"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redpanda:
+    image: redpandadata/redpanda:latest
+    container_name: vendas-redpanda
+    command:
+      - redpanda
+      - start
+      - --smp=1
+      - --memory=1G
+      - --reserve-memory=0M
+      - --overprovisioned
+      - --node-id=0
+      - --check=false
+      - --kafka-addr=INTERNAL://0.0.0.0:9092,EXTERNAL://0.0.0.0:19092
+      - --advertise-kafka-addr=INTERNAL://redpanda:9092,EXTERNAL://localhost:19092
+      - --pandaproxy-addr=0.0.0.0:8082
+      - --advertise-pandaproxy-addr=localhost:8082
+    ports:
+      - "9092:9092"
+      - "19092:19092"
+      - "8082:8082"
+      - "9644:9644"
+    networks:
+      - portal-b2b-network
+    healthcheck:
+      test: ["CMD-SHELL", "rpk cluster health | grep -E 'Healthy:.+true'"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: vendas-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@local.dev
+      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+    ports:
+      - "5050:80"
+    networks:
+      - portal-b2b-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  mercado-service:
+    env_file:
+      - .env.local
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redpanda:
+        condition: service_healthy
+
+  negociacao-service:
+    env_file:
+      - .env.local
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redpanda:
+        condition: service_healthy
+
+volumes:
+  postgres_data:

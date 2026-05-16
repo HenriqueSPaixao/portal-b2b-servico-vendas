@@ -1,0 +1,48 @@
+services:
+  mercado-service:
+    build:
+      context: .
+      dockerfile: mercado-service/Dockerfile
+    container_name: mercado-service
+    env_file:
+      - .env
+    environment:
+      SERVICE_NAME: mercado-service
+      SERVICE_PORT: "5005"
+    ports:
+      - "5005:5005"
+    networks:
+      - portal-b2b-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5005/health').read()"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  negociacao-service:
+    build:
+      context: .
+      dockerfile: negociacao-service/Dockerfile
+    container_name: negociacao-service
+    env_file:
+      - .env
+    environment:
+      SERVICE_NAME: negociacao-service
+      SERVICE_PORT: "5006"
+    ports:
+      - "5006:5006"
+    networks:
+      - portal-b2b-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5006/health').read()"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+networks:
+  portal-b2b-network:
+    external: true

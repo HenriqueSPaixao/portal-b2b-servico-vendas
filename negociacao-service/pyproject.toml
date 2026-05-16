@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "negociacao-service"
+version = "0.1.0"
+description = "Microsserviço de Negociação/Leilão do Portal B2B (Eq. 9 Vendas)"
+requires-python = ">=3.11"
+dependencies = [
+    "b2b-shared",
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.27",
+    "pydantic>=2.6",
+    "pydantic-settings>=2.2",
+    "sqlalchemy[asyncio]>=2.0",
+    "asyncpg>=0.29",
+    "python-jose[cryptography]>=3.3",
+    "aiokafka>=0.10",
+    "orjson>=3.9",
+]
+
+[tool.setuptools.packages.find]
+include = ["app*"]
