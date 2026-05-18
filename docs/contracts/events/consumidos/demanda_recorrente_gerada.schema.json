@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://portal-b2b/contracts/events/consumidos/demanda_recorrente_gerada.schema.json",
+  "title": "demanda_recorrente_gerada",
+  "description": "Mesmo payload de demanda_criada — gerado pelo scheduler de Eq.4 quando uma demanda recorrente dispara. O mercado-service força is_recorrente=true ao consumir.",
+  "allOf": [{"$ref": "../envelope.schema.json"}],
+  "properties": {
+    "eventType": {"const": "demanda_recorrente_gerada"},
+    "payload": {
+      "type": "object",
+      "required": ["quantidade_desejada"],
+      "properties": {
+        "id_demanda":           {"type": "string", "format": "uuid"},
+        "id":                   {"type": "string", "format": "uuid"},
+        "id_produto":           {"type": "string", "format": "uuid"},
+        "produto_id":           {"type": "string", "format": "uuid"},
+        "id_empresa_comprador": {"type": "string", "format": "uuid"},
+        "empresa_comprador_id": {"type": "string", "format": "uuid"},
+        "quantidade_desejada":  {"type": "string"},
+        "quantidade":           {"type": "string"},
+        "preco_maximo":         {"type": ["string", "null"]},
+        "is_recorrente":        {"type": "boolean", "default": true}
+      },
+      "anyOf": [
+        {"required": ["id_demanda"]},
+        {"required": ["id"]}
+      ]
+    }
+  }
+}

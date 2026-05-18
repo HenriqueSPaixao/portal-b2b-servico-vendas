@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://portal-b2b/contracts/events/consumidos/estoque_atualizado.schema.json",
+  "title": "estoque_atualizado",
+  "description": "Publicado por Eq.3 Fornecimentos quando a quantidade de um fornecimento muda. Consumido pelo mercado-service para atualizar o snapshot.",
+  "allOf": [{"$ref": "../envelope.schema.json"}],
+  "properties": {
+    "eventType": {"const": "estoque_atualizado"},
+    "payload": {
+      "type": "object",
+      "required": ["produto_id", "fornecimento_id"],
+      "properties": {
+        "fornecimento_id":       {"type": "string", "format": "uuid"},
+        "produto_id":            {"type": "string", "format": "uuid"},
+        "quantidade_disponivel": {"type": "string", "description": "Decimal como string. Alias: quantidade."},
+        "quantidade":            {"type": "string", "description": "Alias de quantidade_disponivel."}
+      }
+    }
+  }
+}

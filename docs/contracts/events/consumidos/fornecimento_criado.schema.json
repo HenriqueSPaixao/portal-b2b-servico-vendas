@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://portal-b2b/contracts/events/consumidos/fornecimento_criado.schema.json",
+  "title": "fornecimento_criado",
+  "description": "Publicado por Eq.3 Fornecimentos (Eliel). Consumido por mercado-service para alimentar o snapshot de ofertas. Aceitamos os dois aliases ('id'/'fornecimento_id', 'quantidade_disponivel'/'quantidade').",
+  "allOf": [{"$ref": "../envelope.schema.json"}],
+  "properties": {
+    "eventType": {"const": "fornecimento_criado"},
+    "payload": {
+      "type": "object",
+      "required": ["produto_id", "empresa_fornecedor_id", "preco_unitario"],
+      "properties": {
+        "id":                    {"type": "string", "format": "uuid", "description": "ID do fornecimento. Alias: fornecimento_id."},
+        "fornecimento_id":       {"type": "string", "format": "uuid", "description": "Alias de 'id'."},
+        "produto_id":            {"type": "string", "format": "uuid"},
+        "empresa_fornecedor_id": {"type": "string", "format": "uuid"},
+        "quantidade_disponivel": {"type": "string", "description": "Decimal como string. Alias: quantidade."},
+        "quantidade":            {"type": "string", "description": "Alias de quantidade_disponivel."},
+        "preco_unitario":        {"type": "string", "description": "Decimal como string, ex: '10.00'."}
+      },
+      "anyOf": [
+        {"required": ["id"]},
+        {"required": ["fornecimento_id"]}
+      ]
+    }
+  }
+}

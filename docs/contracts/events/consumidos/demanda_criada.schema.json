@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://portal-b2b/contracts/events/consumidos/demanda_criada.schema.json",
+  "title": "demanda_criada",
+  "description": "Publicado por Eq.4 Demanda (Adrielly). Consumido por mercado-service. Aceitamos os dois esquemas de nomenclatura: do DDL de Demanda (com prefixo 'id_') e o snake_case curto.",
+  "allOf": [{"$ref": "../envelope.schema.json"}],
+  "properties": {
+    "eventType": {"const": "demanda_criada"},
+    "payload": {
+      "type": "object",
+      "required": ["quantidade_desejada"],
+      "properties": {
+        "id_demanda":           {"type": "string", "format": "uuid", "description": "Alias: id."},
+        "id":                   {"type": "string", "format": "uuid", "description": "Alias de id_demanda."},
+        "id_produto":           {"type": "string", "format": "uuid", "description": "Alias: produto_id."},
+        "produto_id":           {"type": "string", "format": "uuid", "description": "Alias de id_produto."},
+        "id_empresa_comprador": {"type": "string", "format": "uuid", "description": "Alias: empresa_comprador_id."},
+        "empresa_comprador_id": {"type": "string", "format": "uuid", "description": "Alias de id_empresa_comprador."},
+        "quantidade_desejada":  {"type": "string", "description": "Decimal como string. Alias: quantidade."},
+        "quantidade":           {"type": "string", "description": "Alias de quantidade_desejada."},
+        "preco_maximo":         {"type": ["string", "null"], "description": "Decimal como string. Opcional."},
+        "is_recorrente":        {"type": "boolean", "default": false}
+      },
+      "anyOf": [
+        {"required": ["id_demanda"]},
+        {"required": ["id"]}
+      ]
+    }
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://portal-b2b/contracts/events/publicados/negociacao_fechada.schema.json",
+  "title": "negociacao_fechada",
+  "description": "Self-contained — é o gatilho oficial para Eq.4 Demanda criar o pedido. NUNCA criamos pedido aqui (boundary do domínio Vendas). correlationId casa com o modo_negociacao_definido que originou o processo.",
+  "allOf": [{"$ref": "../envelope.schema.json"}],
+  "properties": {
+    "eventType": {"const": "negociacao_fechada"},
+    "source":    {"const": "negociacao-service"},
+    "payload": {
+      "type": "object",
+      "required": [
+        "processo_id", "produto_id", "modo",
+        "quantidade", "valor_unitario_final", "valor_total",
+        "motivo_fechamento", "data_fechamento"
+      ],
+      "properties": {
+        "processo_id":           {"type": "string", "format": "uuid"},
+        "produto_id":            {"type": "string", "format": "uuid"},
+        "modo":                  {"type": "string", "enum": ["direto", "leilao_direto", "leilao_reverso"]},
+        "empresa_comprador_id":  {"type": ["string", "null"], "format": "uuid"},
+        "empresa_fornecedor_id": {"type": ["string", "null"], "format": "uuid"},
+        "fornecimento_id":       {"type": ["string", "null"], "format": "uuid"},
+        "demanda_id":            {"type": ["string", "null"], "format": "uuid"},
+        "quantidade":            {"type": "string", "description": "Decimal como string."},
+        "valor_unitario_final":  {"type": "string", "description": "Decimal como string."},
+        "valor_total":           {"type": "string", "description": "Decimal como string. = quantidade * valor_unitario_final."},
+        "vencedor_lance_id":     {"type": ["string", "null"], "format": "uuid", "description": "null em modo direto (sem leilão)."},
+        "motivo_fechamento":     {"type": "string", "enum": ["venda_direta_automatica", "expirado", "manual_admin"]},
+        "data_fechamento":       {"type": "string", "format": "date-time"}
+      }
+    }
+  }
+}

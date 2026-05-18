@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://portal-b2b/contracts/events/publicados/modo_negociacao_definido.schema.json",
+  "title": "modo_negociacao_definido",
+  "description": "Publicado por mercado-service sempre que o matching dispara — inclusive em modo direto. Consumido por negociacao-service para criar o processo. Outras equipes podem consumir para observabilidade.",
+  "allOf": [{"$ref": "../envelope.schema.json"}],
+  "properties": {
+    "eventType": {"const": "modo_negociacao_definido"},
+    "source":    {"const": "mercado-service"},
+    "payload": {
+      "type": "object",
+      "required": ["processo_id", "produto_id", "modo", "data_inicio", "data_fim", "quantidade"],
+      "properties": {
+        "processo_id":                       {"type": "string", "format": "uuid"},
+        "produto_id":                        {"type": "string", "format": "uuid"},
+        "modo":                              {"type": "string", "enum": ["direto", "leilao_direto", "leilao_reverso"]},
+        "data_inicio":                       {"type": "string", "format": "date-time"},
+        "data_fim":                          {"type": "string", "format": "date-time"},
+        "quantidade":                        {"type": "string", "description": "Decimal como string."},
+        "valor_reserva":                     {"type": ["string", "null"], "description": "Decimal como string ou null."},
+        "fornecimento_id":                   {"type": ["string", "null"], "format": "uuid"},
+        "demanda_id":                        {"type": ["string", "null"], "format": "uuid"},
+        "empresa_comprador_principal":       {"type": ["string", "null"], "format": "uuid"},
+        "empresa_fornecedor_principal":      {"type": ["string", "null"], "format": "uuid"},
+        "empresas_compradoras_habilitadas":  {"type": "array", "items": {"type": "string", "format": "uuid"}},
+        "empresas_fornecedoras_habilitadas": {"type": "array", "items": {"type": "string", "format": "uuid"}}
+      }
+    }
+  }
+}

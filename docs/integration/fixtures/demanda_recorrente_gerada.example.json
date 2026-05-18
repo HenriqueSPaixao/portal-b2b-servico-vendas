@@ -1,0 +1,8 @@
+{
+  "id_demanda": "33333333-3333-3333-3333-333333333333",
+  "id_produto": "00000000-0000-0000-0000-0000000aaaaa",
+  "id_empresa_comprador": "00000000-0000-0000-0000-000000000003",
+  "quantidade_desejada": "100",
+  "preco_maximo": "12.00",
+  "is_recorrente": true
+}

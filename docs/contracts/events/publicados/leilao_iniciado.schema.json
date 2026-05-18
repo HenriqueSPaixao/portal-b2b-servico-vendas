@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://portal-b2b/contracts/events/publicados/leilao_iniciado.schema.json",
+  "title": "leilao_iniciado",
+  "description": "Publicado por mercado-service apenas em modos de leilão (não em modo direto). Mesmo correlationId do modo_negociacao_definido correspondente. Negociacao-service o consome como auditoria — o processo já foi criado pelo evento anterior.",
+  "allOf": [{"$ref": "../envelope.schema.json"}],
+  "properties": {
+    "eventType": {"const": "leilao_iniciado"},
+    "source":    {"const": "mercado-service"},
+    "payload": {
+      "type": "object",
+      "required": ["processo_id", "produto_id", "modo", "data_inicio", "data_fim"],
+      "properties": {
+        "processo_id": {"type": "string", "format": "uuid"},
+        "produto_id":  {"type": "string", "format": "uuid"},
+        "modo":        {"type": "string", "enum": ["leilao_direto", "leilao_reverso"]},
+        "data_inicio": {"type": "string", "format": "date-time"},
+        "data_fim":    {"type": "string", "format": "date-time"}
+      }
+    }
+  }
+}

@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://portal-b2b/contracts/events/envelope.schema.json",
+  "title": "EventEnvelope",
+  "description": "Envelope padrão de todos os eventos Kafka do Portal B2B. Espelha b2b_shared.events.envelope.EventEnvelope.",
+  "type": "object",
+  "required": ["eventType", "source", "payload"],
+  "properties": {
+    "eventId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "UUID gerado pelo publisher. Default: uuid4."
+    },
+    "eventType": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Nome canônico do tópico (ex: 'negociacao_fechada')."
+    },
+    "eventVersion": {
+      "type": "string",
+      "default": "1.0",
+      "description": "Versão do contrato deste eventType."
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO8601 UTC. Quando o evento foi publicado."
+    },
+    "source": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Microsserviço que publicou (ex: 'mercado-service')."
+    },
+    "correlationId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "ID que correlaciona eventos do mesmo fluxo de negócio."
+    },
+    "payload": {
+      "type": "object",
+      "description": "Payload específico do eventType. Ver schema dedicado de cada evento."
+    }
+  }
+}
