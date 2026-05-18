@@ -156,9 +156,62 @@ Saída esperada (resumo):
 
 ## Integration Guide (para outras equipes)
 
-**Domínio:** Mercado + Negociação. **Equipe:** Eq.9 Vendas. **Contato:** Henrique (`henriquecorp253@gmail.com` / grupo WhatsApp SD).
+**Domínio:** Mercado + Negociação. **Contato:** Henrique (`henriquecorp253@gmail.com` / grupo WhatsApp SD).
 
 **Boundary:** este domínio **não cria pedido**. O ciclo encerra publicando `negociacao_fechada` self-contained; a Eq.4 Demanda consome e cria `pedido_criado`.
+
+### Atalhos para integrar rápido
+
+| Quero… | Use |
+|---|---|
+| Contratos REST navegáveis | [`docs/contracts/mercado.openapi.json`](docs/contracts/mercado.openapi.json), [`docs/contracts/negociacao.openapi.json`](docs/contracts/negociacao.openapi.json) — abra em [editor.swagger.io](https://editor.swagger.io) ou importe em qualquer gerador de cliente (`openapi-typescript`, `orval`). |
+| Schemas dos eventos Kafka | [`docs/contracts/events/`](docs/contracts/events/) — 8 schemas (4 consumidos + 4 publicados) + [`envelope.schema.json`](docs/contracts/events/envelope.schema.json). JSON Schema 2020-12. |
+| Testar REST clicando | [`docs/integration/postman_collection.json`](docs/integration/postman_collection.json) — importe no Postman/Insomnia, defina `{{jwt}}`. |
+| Ver eventos chegando em tempo real | `scripts/event_tap.bat` (Windows) ou `scripts/event_tap.sh` (Bash/WSL). Filtra por tópico: `scripts/event_tap.bat negociacao_fechada`. |
+| Publicar um evento de teste no Kafka | `scripts/event_publish.sh demanda_criada docs/integration/fixtures/demanda_criada.example.json` — fixtures prontas em [`docs/integration/fixtures/`](docs/integration/fixtures/). |
+| Saber o que está pronto vs pendente | [`docs/STATUS_INFRA.md`](docs/STATUS_INFRA.md) |
+
+### Diagrama de sequência (fluxo completo)
+
+```
+Eq.3 Fornecimentos      mercado-service        negociacao-service       Eq.4 Demanda
+       (Eliel)         (matching engine)       (auction executor)        (Adrielly)
+         │                    │                        │                       │
+         │ fornecimento_criado│                        │                       │
+         ├───────────────────►│                        │                       │
+         │ estoque_atualizado │                        │                       │
+         ├───────────────────►│                        │                       │
+         │                    │                        │   demanda_criada      │
+         │                    │◄───────────────────────┼───────────────────────┤
+         │                    │                        │                       │
+         │            (matching dispara)               │                       │
+         │                    │ modo_negociacao_definido                       │
+         │                    ├───────────────────────►│                       │
+         │                    │ leilao_iniciado (se leilão)                    │
+         │                    ├───────────────────────►│                       │
+         │                    │                        │                       │
+         │                    │              (compradores/fornecedores         │
+         │                    │               fazem POST /lances)              │
+         │                    │                        │ lance_realizado       │
+         │                    │                        ├──────────────────────►│
+         │                    │                        │                       │
+         │                    │              (scheduler fecha após data_fim    │
+         │                    │               OU modo direto fecha imediato)   │
+         │                    │                        │ negociacao_fechada    │
+         │                    │                        ├──────────────────────►│
+         │                    │                        │            (Eq.4 cria │
+         │                    │                        │             pedido_criado)
+```
+
+### Quem chamar quando algo der errado
+
+| Sintoma | Responsável | Como contatar |
+|---|---|---|
+| Evento `fornecimento_criado` / `estoque_atualizado` não chega ou payload errado | Eq.3 — Eliel | WhatsApp SD |
+| Evento `demanda_criada` não chega ou `negociacao_fechada` não vira `pedido_criado` | Eq.4 — Adrielly | WhatsApp SD |
+| JWT rejeitado, claim faltando, `JWT_SECRET` divergente | MS Usuários — Guilherme | WhatsApp SD |
+| Cloud SQL inacessível, cluster Kafka fora, gateway Nginx sem rota | Infra — Sérgio | WhatsApp SD |
+| Mercado/Negociação retornando erro inesperado | Vendas — Henrique | `henriquecorp253@gmail.com` |
 
 ### Eventos que consumimos de vocês
 
@@ -228,6 +281,32 @@ Aceitamos os dois esquemas de nomenclatura (versão "com prefixo `id_`" do DDL d
 | `POST` | `/api/negociacao/processos/{id}/fechar` | fechamento manual (admin) |
 
 JWT validado localmente — issuer `portal-autenticacao`, audience `portal-b2b`, HS256, mesma `JWT_SECRET` do MS Usuários.
+
+Para tipagem TypeScript automática, importe [`docs/contracts/negociacao.openapi.json`](docs/contracts/negociacao.openapi.json) no `openapi-typescript` ou `orval`. Para regerar os snapshots após mudança no código: `python scripts/export_openapi.py` (requer `docker compose up -d`).
+
+### Ferramentas de integração
+
+**Event tap** — escuta os eventos Kafka em tempo real (formatados, com cor por tópico). Útil pra Eq.3/Eq.4 verem o payload exato chegando sem implementar consumer próprio:
+
+```bash
+# todos os 8 tópicos
+scripts/event_tap.sh
+
+# filtrar
+scripts/event_tap.sh negociacao_fechada lance_realizado
+```
+
+**Event publish** — publica um evento arbitrário a partir de fixture JSON. Útil pra testar nosso mercado sem precisar implementar o publisher de Eq.3/Eq.4 ainda:
+
+```bash
+# usa fixture com payload puro — embrulha em envelope automaticamente
+scripts/event_publish.sh demanda_criada docs/integration/fixtures/demanda_criada.example.json
+
+# ou com envelope completo (--no-wrap)
+scripts/event_publish.sh negociacao_fechada meu_envelope_completo.json --no-wrap
+```
+
+Fixtures prontas em [`docs/integration/fixtures/`](docs/integration/fixtures/) para os 4 eventos consumidos.
 
 ## Subir contra a infra real (Cloud SQL + cluster Kafka)
 
