@@ -2,6 +2,7 @@ import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
 from app.matching.consumers import MercadoConsumers
@@ -78,6 +79,7 @@ async def lifespan(app: FastAPI):
 
 
 def create_app() -> FastAPI:
+    settings = get_settings()
     app = FastAPI(
         title="Mercado Service",
         version="0.1.0",
@@ -87,6 +89,13 @@ def create_app() -> FastAPI:
             "modo_negociacao_definido + leilao_iniciado."
         ),
         lifespan=lifespan,
+    )
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.cors_allow_origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
     )
     app.include_router(build_health_router("mercado-service"))
     app.include_router(mercado_router)

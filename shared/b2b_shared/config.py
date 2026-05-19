@@ -1,5 +1,7 @@
-from pydantic import Field
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from typing import Annotated
+
+from pydantic import Field, field_validator
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
 class BaseServiceSettings(BaseSettings):
@@ -29,3 +31,17 @@ class BaseServiceSettings(BaseSettings):
     jwt_issuer: str = Field(default="portal-autenticacao")
     jwt_audience: str = Field(default="portal-b2b")
     jwt_clock_skew_seconds: int = Field(default=60)
+
+    cors_allow_origins: Annotated[list[str], NoDecode] = Field(
+        default_factory=lambda: [
+            "http://localhost:3005",
+            "http://localhost:3006",
+        ]
+    )
+
+    @field_validator("cors_allow_origins", mode="before")
+    @classmethod
+    def _split_cors_origins(cls, v):
+        if isinstance(v, str):
+            return [s.strip() for s in v.split(",") if s.strip()]
+        return v
