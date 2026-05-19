@@ -18,6 +18,11 @@ htmlcov/
 *.log
 .idea/
 .vscode/
+.claude/
 *.swp
 .DS_Store
 _ref/
+
+# Front-ends embarcados (mercado-web, negociacao-web)
+node_modules/
+.vite/

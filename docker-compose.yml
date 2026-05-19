@@ -43,6 +43,34 @@ services:
       retries: 3
       start_period: 15s
 
+  mercado-web:
+    build:
+      context: ./mercado-web
+      args:
+        VITE_API_BASE: http://localhost:5005
+    container_name: mercado-web
+    ports:
+      - "3005:80"
+    networks:
+      - portal-b2b-network
+    depends_on:
+      - mercado-service
+    restart: unless-stopped
+
+  negociacao-web:
+    build:
+      context: ./negociacao-web
+      args:
+        VITE_API_BASE: http://localhost:5006
+    container_name: negociacao-web
+    ports:
+      - "3006:80"
+    networks:
+      - portal-b2b-network
+    depends_on:
+      - negociacao-service
+    restart: unless-stopped
+
 networks:
   portal-b2b-network:
     external: true

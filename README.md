@@ -49,6 +49,8 @@ docker compose up -d
 Endpoints locais:
 - mercado: http://localhost:5005/health · /docs
 - negociacao: http://localhost:5006/health · /docs
+- **mercado-web** (UI): http://localhost:3005 — ver seção "Fronts" abaixo
+- **negociacao-web** (UI): http://localhost:3006 — ver seção "Fronts" abaixo
 - PgAdmin: http://localhost:5050 (admin@local.dev / admin)
 - Postgres: localhost:5432 (svc_portal_b2b / senha_portal_b2b)
 - Redpanda Kafka: localhost:19092 (acesso do host) / redpanda:9092 (entre containers)
@@ -91,6 +93,41 @@ Swagger:
 
 - `http://localhost:5005/docs`
 - `http://localhost:5006/docs`
+
+## Fronts (UI embarcada)
+
+Cada microsserviço tem seu front próprio, alinhado ao padrão visual do Portal B2B (React + Tailwind, dark mode obrigatório, verde `#4cc465`):
+
+- **mercado-web** ([mercado-web/](mercado-web/)) — porta `3005`. Página única com:
+  - Tabela "Processos disparados pelo matching" (`GET /api/mercado/processos`, refresh 5s).
+  - Painel "Snapshot por produto" (`GET /api/mercado/snapshot/{produto_id}`).
+- **negociacao-web** ([negociacao-web/](negociacao-web/)) — porta `3006`. Duas views:
+  - `/` lista de processos com filtros por status/modo/produto (`GET /api/negociacao/processos`).
+  - `/processos/:id` detalhe + lances + formulário de novo lance (`POST .../lances`) + fechamento manual (`POST .../fechar`).
+
+**Handshake de JWT** (padrão de grupo): o portal pai abre `http://localhost:3005/?jwt=…` ou `http://localhost:3006/?jwt=…`; o front move o token para `sessionStorage["portal_b2b_jwt"]`, apaga `?jwt=…` da barra via `history.replaceState`, e o interceptor do axios injeta `Authorization: Bearer …` em todas as chamadas. `401` limpa o storage.
+
+**Para abrir manualmente em dev** (sem o portal pai injetar o token):
+
+```bash
+# (a) Se você já tem .venv-negociacao ou venv com python-jose:
+python scripts/gen_jwt.py
+
+# (b) Se não tem nada local, use o container (negociacao-service já tem python-jose):
+docker cp scripts/gen_jwt.py negociacao-service:/tmp/gen_jwt.py
+docker exec negociacao-service python /tmp/gen_jwt.py
+```
+
+Imprime o JWT + as duas URLs prontas pra colar no navegador. Lê `JWT_SECRET`/`JWT_ISSUER`/`JWT_AUDIENCE` de env vars ou do `.env` da raiz; HS256 válido por 8h (configurável via `--ttl-hours`, `--role`, `--empresa-id`).
+
+**CORS:** os services já vêm com `CORSMiddleware` lendo `CORS_ALLOW_ORIGINS` do `.env` (default `http://localhost:3005,http://localhost:3006`).
+
+**Subir tudo junto:**
+
+```bash
+docker compose up --build
+# após ~30s os fronts estão disponíveis em :3005 e :3006
+```
 
 ## Integração
 
