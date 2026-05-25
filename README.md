@@ -254,12 +254,18 @@ Eq.3 Fornecimentos      mercado-service        negociacao-service       Eq.4 Dem
 
 | Tópico | Origem esperada | Campos obrigatórios no payload |
 |---|---|---|
-| `fornecimento_criado` | Eq.3 Fornecimentos (Eliel) | `id` (alias `fornecimento_id`), `produto_id`, `empresa_fornecedor_id`, `quantidade_disponivel` (alias `quantidade`), `preco_unitario` |
-| `estoque_atualizado` | Eq.3 Fornecimentos | `produto_id`, `fornecimento_id`, `quantidade_disponivel` (alias `quantidade`) |
+| `fornecimento_criado` | Eq.3 Fornecimentos (Eliel) — [theudevs/fornecimentos-service](https://github.com/theudevs/fornecimentos-service) | **Formato canônico (camelCase, contrato oficial da Eq.3):** `idFornecimento`, `idProduto`, `idEmpresaFornecedor`, `precoUnitario`, `quantidadeDisponivel`. Aliases snake_case aceitos por compatibilidade: `id`/`fornecimento_id`, `produto_id`, `empresa_fornecedor_id`, `preco_unitario`, `quantidade_disponivel`/`quantidade`. Campo `idEnderecoOrigem` é publicado pela Eq.3 mas ignorado pelo matching (Demanda/Logística podem buscar via REST). |
+| `estoque_atualizado` | Eq.3 Fornecimentos | **Formato canônico (camelCase):** `idFornecimento`, `idProduto`, `quantidadeDisponivel`. Aliases snake_case aceitos: `fornecimento_id`, `produto_id`, `quantidade_disponivel`/`quantidade`. Campos `idEmpresaFornecedor` e `quantidadeAnterior` são ignorados (redundante / auditoria). |
 | `demanda_criada` | Eq.4 Demanda (Adrielly) | `id_demanda` (alias `id`), `id_produto` (alias `produto_id`), `id_empresa_comprador` (alias `empresa_comprador_id`), `quantidade_desejada` (alias `quantidade`), opcional: `preco_maximo`, `is_recorrente` |
 | `demanda_recorrente_gerada` | Eq.4 Demanda | mesmo payload de `demanda_criada` (`is_recorrente` é forçado a `true`) |
 
-Aceitamos os dois esquemas de nomenclatura (versão "com prefixo `id_`" do DDL de Demanda e versão "snake_case curto") — não quebra para nenhum dos lados.
+Aceitamos múltiplos esquemas de nomenclatura por compatibilidade defensiva:
+- **Eq.3 Fornecimentos** publica em camelCase com prefixo `id` (`idFornecimento`, `idProduto`, ...) — confirmado em `app/services/fornecimento_service.py` do [repo deles](https://github.com/theudevs/fornecimentos-service). Os aliases snake_case continuam aceitos para o smoke test e ferramentas internas (`scripts/event_publish.*`).
+- **Eq.4 Demanda** segue o DDL com prefixo `id_` (`id_demanda`, `id_produto`, ...) ou snake_case curto.
+
+⚠️ **Lacunas conhecidas no contrato da Eq.3 (a alinhar com Eliel):**
+- Eles **não publicam** evento ao atualizar um fornecimento via `PUT /fornecimentos/{id}` — se o fornecedor mudar `preco_unitario` ou `produto_id`, nosso snapshot fica com o valor antigo.
+- Eles **não publicam** evento ao inativar via `DELETE /fornecimentos/{id}` — a oferta inativada continua viva no nosso snapshot até o pod reiniciar.
 
 ### Eventos que publicamos
 
