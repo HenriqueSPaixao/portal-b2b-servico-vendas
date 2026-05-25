@@ -2,25 +2,31 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://portal-b2b/contracts/events/consumidos/fornecimento_criado.schema.json",
   "title": "fornecimento_criado",
-  "description": "Publicado por Eq.3 Fornecimentos (Eliel). Consumido por mercado-service para alimentar o snapshot de ofertas. Aceitamos os dois aliases ('id'/'fornecimento_id', 'quantidade_disponivel'/'quantidade').",
+  "description": "Publicado por Eq.3 Fornecimentos (Eliel — https://github.com/theudevs/fornecimentos-service). Consumido por mercado-service para alimentar o snapshot de ofertas. O contrato OFICIAL publicado pela Eq.3 hoje usa camelCase com prefixo 'id' (idFornecimento, idProduto, ...). Aceitamos também aliases snake_case por compatibilidade histórica/defensiva.",
   "allOf": [{"$ref": "../envelope.schema.json"}],
   "properties": {
     "eventType": {"const": "fornecimento_criado"},
     "payload": {
       "type": "object",
-      "required": ["produto_id", "empresa_fornecedor_id", "preco_unitario"],
       "properties": {
-        "id":                    {"type": "string", "format": "uuid", "description": "ID do fornecimento. Alias: fornecimento_id."},
-        "fornecimento_id":       {"type": "string", "format": "uuid", "description": "Alias de 'id'."},
-        "produto_id":            {"type": "string", "format": "uuid"},
-        "empresa_fornecedor_id": {"type": "string", "format": "uuid"},
-        "quantidade_disponivel": {"type": "string", "description": "Decimal como string. Alias: quantidade."},
-        "quantidade":            {"type": "string", "description": "Alias de quantidade_disponivel."},
-        "preco_unitario":        {"type": "string", "description": "Decimal como string, ex: '10.00'."}
+        "idFornecimento":        {"type": "string", "format": "uuid", "description": "Forma canônica (camelCase) — Eq.3."},
+        "idEmpresaFornecedor":   {"type": "string", "format": "uuid", "description": "Forma canônica (camelCase) — Eq.3."},
+        "idProduto":             {"type": "string", "format": "uuid", "description": "Forma canônica (camelCase) — Eq.3."},
+        "idEnderecoOrigem":      {"type": "string", "format": "uuid", "description": "Publicado por Eq.3, IGNORADO pelo mercado-service (matching não depende de endereço; Demanda/Logística podem buscar via REST do fornecimentos-service)."},
+        "precoUnitario":         {"type": "string", "description": "Decimal como string. Forma canônica — Eq.3."},
+        "quantidadeDisponivel":  {"type": "string", "description": "Decimal como string. Forma canônica — Eq.3."},
+        "id":                    {"type": "string", "format": "uuid", "description": "Alias snake_case de idFornecimento."},
+        "fornecimento_id":       {"type": "string", "format": "uuid", "description": "Alias snake_case de idFornecimento."},
+        "produto_id":            {"type": "string", "format": "uuid", "description": "Alias snake_case de idProduto."},
+        "empresa_fornecedor_id": {"type": "string", "format": "uuid", "description": "Alias snake_case de idEmpresaFornecedor."},
+        "quantidade_disponivel": {"type": "string", "description": "Alias snake_case de quantidadeDisponivel."},
+        "quantidade":            {"type": "string", "description": "Alias curto de quantidadeDisponivel."},
+        "preco_unitario":        {"type": "string", "description": "Alias snake_case de precoUnitario."}
       },
       "anyOf": [
-        {"required": ["id"]},
-        {"required": ["fornecimento_id"]}
+        {"required": ["idFornecimento", "idProduto", "idEmpresaFornecedor", "precoUnitario", "quantidadeDisponivel"]},
+        {"required": ["id", "produto_id", "empresa_fornecedor_id", "preco_unitario"]},
+        {"required": ["fornecimento_id", "produto_id", "empresa_fornecedor_id", "preco_unitario"]}
       ]
     }
   }

@@ -2,19 +2,27 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://portal-b2b/contracts/events/consumidos/estoque_atualizado.schema.json",
   "title": "estoque_atualizado",
-  "description": "Publicado por Eq.3 Fornecimentos quando a quantidade de um fornecimento muda. Consumido pelo mercado-service para atualizar o snapshot.",
+  "description": "Publicado por Eq.3 Fornecimentos quando a quantidade de um fornecimento muda. Consumido pelo mercado-service para atualizar o snapshot. O contrato OFICIAL da Eq.3 (https://github.com/theudevs/fornecimentos-service) usa camelCase; aceitamos também snake_case por compatibilidade defensiva.",
   "allOf": [{"$ref": "../envelope.schema.json"}],
   "properties": {
     "eventType": {"const": "estoque_atualizado"},
     "payload": {
       "type": "object",
-      "required": ["produto_id", "fornecimento_id"],
       "properties": {
-        "fornecimento_id":       {"type": "string", "format": "uuid"},
-        "produto_id":            {"type": "string", "format": "uuid"},
-        "quantidade_disponivel": {"type": "string", "description": "Decimal como string. Alias: quantidade."},
-        "quantidade":            {"type": "string", "description": "Alias de quantidade_disponivel."}
-      }
+        "idFornecimento":        {"type": "string", "format": "uuid", "description": "Forma canônica (camelCase) — Eq.3."},
+        "idEmpresaFornecedor":   {"type": "string", "format": "uuid", "description": "Publicado por Eq.3, IGNORADO pelo mercado-service (redundante — já temos a empresa pelo idFornecimento no snapshot)."},
+        "idProduto":             {"type": "string", "format": "uuid", "description": "Forma canônica (camelCase) — Eq.3."},
+        "quantidadeAnterior":    {"type": "string", "description": "Publicado por Eq.3 (auditoria), IGNORADO pelo mercado-service. Usamos apenas a quantidade atual."},
+        "quantidadeDisponivel":  {"type": "string", "description": "Decimal como string. Quantidade atual após a alteração."},
+        "fornecimento_id":       {"type": "string", "format": "uuid", "description": "Alias snake_case de idFornecimento."},
+        "produto_id":            {"type": "string", "format": "uuid", "description": "Alias snake_case de idProduto."},
+        "quantidade_disponivel": {"type": "string", "description": "Alias snake_case de quantidadeDisponivel."},
+        "quantidade":            {"type": "string", "description": "Alias curto de quantidadeDisponivel."}
+      },
+      "anyOf": [
+        {"required": ["idFornecimento", "idProduto", "quantidadeDisponivel"]},
+        {"required": ["fornecimento_id", "produto_id"]}
+      ]
     }
   }
 }

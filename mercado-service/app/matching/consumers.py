@@ -25,14 +25,26 @@ class MercadoConsumers:
         self._engine = engine
 
     async def handle_fornecimento_criado(self, envelope: EventEnvelope) -> None:
+        # Aceita o contrato camelCase publicado pela Eq.3 Fornecimentos
+        # (idFornecimento/idProduto/...) e também o snake_case histórico.
         p = envelope.payload
         try:
             oferta = Oferta(
-                fornecimento_id=UUID(p["id"]),
-                produto_id=UUID(p["produto_id"]),
-                empresa_fornecedor_id=UUID(p["empresa_fornecedor_id"]),
-                quantidade=_decimal(p.get("quantidade_disponivel") or p.get("quantidade")),
-                preco_unitario=_decimal(p.get("preco_unitario")),
+                fornecimento_id=UUID(
+                    p.get("idFornecimento") or p.get("id") or p["fornecimento_id"]
+                ),
+                produto_id=UUID(p.get("idProduto") or p["produto_id"]),
+                empresa_fornecedor_id=UUID(
+                    p.get("idEmpresaFornecedor") or p["empresa_fornecedor_id"]
+                ),
+                quantidade=_decimal(
+                    p.get("quantidadeDisponivel")
+                    or p.get("quantidade_disponivel")
+                    or p.get("quantidade")
+                ),
+                preco_unitario=_decimal(
+                    p.get("precoUnitario") or p.get("preco_unitario")
+                ),
             )
         except (KeyError, ValueError) as exc:
             logger.error(
@@ -44,11 +56,19 @@ class MercadoConsumers:
         await self._engine.evaluate(oferta.produto_id)
 
     async def handle_estoque_atualizado(self, envelope: EventEnvelope) -> None:
+        # Aceita o contrato camelCase publicado pela Eq.3 Fornecimentos
+        # e o snake_case histórico. quantidadeAnterior é ignorado (auditoria).
         p = envelope.payload
         try:
-            produto_id = UUID(p["produto_id"])
-            fornecimento_id = UUID(p["fornecimento_id"])
-            nova_quantidade = _decimal(p.get("quantidade_disponivel") or p.get("quantidade"))
+            produto_id = UUID(p.get("idProduto") or p["produto_id"])
+            fornecimento_id = UUID(
+                p.get("idFornecimento") or p["fornecimento_id"]
+            )
+            nova_quantidade = _decimal(
+                p.get("quantidadeDisponivel")
+                or p.get("quantidade_disponivel")
+                or p.get("quantidade")
+            )
         except (KeyError, ValueError) as exc:
             logger.error(
                 "Payload estoque_atualizado inválido",
