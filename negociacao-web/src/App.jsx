@@ -1,11 +1,11 @@
-import { BrowserRouter, Route, Routes } from 'react-router-dom';
+import { HashRouter, Route, Routes } from 'react-router-dom';
 import Layout from './components/Layout.jsx';
 import ProcessosList from './components/ProcessosList.jsx';
 import ProcessoDetalhe from './components/ProcessoDetalhe.jsx';
 
 export default function App() {
   return (
-    <BrowserRouter>
+    <HashRouter>
       <Layout>
         <Routes>
           <Route path="/" element={<ProcessosList />} />
@@ -13,6 +13,6 @@ export default function App() {
           <Route path="*" element={<ProcessosList />} />
         </Routes>
       </Layout>
-    </BrowserRouter>
+    </HashRouter>
   );
 }
