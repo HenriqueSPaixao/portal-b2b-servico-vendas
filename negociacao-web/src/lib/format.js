@@ -7,6 +7,7 @@ export const MODO_COLORS = {
 export const STATUS_COLORS = {
   ABERTO: 'bg-brand-green/15 text-brand-green',
   FECHADA: 'bg-zinc-500/15 text-zinc-600 dark:text-zinc-400',
+  CONCLUIDO: 'bg-zinc-500/15 text-zinc-600 dark:text-zinc-400',
   CANCELADO: 'bg-rose-500/15 text-rose-600 dark:text-rose-400',
 };
 

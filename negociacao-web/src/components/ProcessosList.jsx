@@ -69,6 +69,7 @@ export default function ProcessosList() {
               <option value="">todos</option>
               <option value="ABERTO">ABERTO</option>
               <option value="FECHADA">FECHADA</option>
+              <option value="CONCLUIDO">CONCLUIDO</option>
               <option value="CANCELADO">CANCELADO</option>
             </select>
           </div>

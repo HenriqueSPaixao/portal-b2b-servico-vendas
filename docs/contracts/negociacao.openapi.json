@@ -418,7 +418,8 @@
             "enum": [
               "ABERTO",
               "FECHADA",
-              "CANCELADO"
+              "CANCELADO",
+              "CONCLUIDO"
             ],
             "title": "Status"
           },
@@ -428,8 +429,15 @@
             "title": "Data Inicio"
           },
           "data_fim": {
-            "type": "string",
-            "format": "date-time",
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Data Fim"
           },
           "valor_reserva": {
@@ -459,7 +467,6 @@
           "modo",
           "status",
           "data_inicio",
-          "data_fim",
           "valor_reserva"
         ],
         "title": "ProcessoDetalhadoOut"
@@ -490,7 +497,8 @@
             "enum": [
               "ABERTO",
               "FECHADA",
-              "CANCELADO"
+              "CANCELADO",
+              "CONCLUIDO"
             ],
             "title": "Status"
           },
@@ -500,8 +508,15 @@
             "title": "Data Inicio"
           },
           "data_fim": {
-            "type": "string",
-            "format": "date-time",
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Data Fim"
           },
           "valor_reserva": {
@@ -524,7 +539,6 @@
           "modo",
           "status",
           "data_inicio",
-          "data_fim",
           "valor_reserva"
         ],
         "title": "ProcessoOut"

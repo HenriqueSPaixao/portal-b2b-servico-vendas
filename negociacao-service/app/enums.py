@@ -11,3 +11,4 @@ class StatusProcesso(StrEnum):
     ABERTO = "ABERTO"
     FECHADA = "FECHADA"
     CANCELADO = "CANCELADO"
+    CONCLUIDO = "CONCLUIDO"

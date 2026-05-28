@@ -24,7 +24,7 @@ class ProcessoNegociacao(Base):
     modo: Mapped[str] = mapped_column(String(20), nullable=False)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="ABERTO")
     data_inicio: Mapped[datetime] = mapped_column(DateTime(timezone=True))
-    data_fim: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    data_fim: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     valor_reserva: Mapped[Decimal | None] = mapped_column(Numeric(18, 4))
 
     lances: Mapped[list["Lance"]] = relationship(

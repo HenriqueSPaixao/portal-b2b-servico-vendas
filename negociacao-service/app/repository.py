@@ -52,6 +52,7 @@ class ProcessoRepository:
         result = await self._session.execute(
             select(ProcessoNegociacao).where(
                 ProcessoNegociacao.status == "ABERTO",
+                ProcessoNegociacao.data_fim.isnot(None),
                 ProcessoNegociacao.data_fim <= agora,
             )
         )
