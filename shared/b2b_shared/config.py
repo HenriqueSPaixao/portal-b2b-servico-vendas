@@ -34,8 +34,8 @@ class BaseServiceSettings(BaseSettings):
 
     cors_allow_origins: Annotated[list[str], NoDecode] = Field(
         default_factory=lambda: [
-            "http://localhost:3005",
-            "http://localhost:3006",
+            "http://localhost:8085",
+            "http://localhost:8086",
         ]
     )
 

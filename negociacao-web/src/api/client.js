@@ -23,11 +23,11 @@ api.interceptors.response.use(
 
 export const NegociacaoApi = {
   listarProcessos: (params = {}) =>
-    api.get('/api/negociacao/processos', { params }).then((r) => r.data),
+    api.get('/processos', { params }).then((r) => r.data),
   detalhe: (id) =>
-    api.get(`/api/negociacao/processos/${id}`).then((r) => r.data),
+    api.get(`/processos/${id}`).then((r) => r.data),
   registrarLance: (id, body) =>
-    api.post(`/api/negociacao/processos/${id}/lances`, body).then((r) => r.data),
+    api.post(`/processos/${id}/lances`, body).then((r) => r.data),
   fechar: (id) =>
-    api.post(`/api/negociacao/processos/${id}/fechar`).then((r) => r.data),
+    api.post(`/processos/${id}/fechar`).then((r) => r.data),
 };

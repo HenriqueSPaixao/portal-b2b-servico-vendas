@@ -29,13 +29,13 @@
         }
       }
     },
-    "/api/mercado/snapshot/{produto_id}": {
+    "/snapshot/{produto_id}": {
       "get": {
         "tags": [
           "mercado"
         ],
         "summary": "Snapshot",
-        "operationId": "snapshot_api_mercado_snapshot__produto_id__get",
+        "operationId": "snapshot_snapshot__produto_id__get",
         "security": [
           {
             "HTTPBearer": []
@@ -61,7 +61,7 @@
                 "schema": {
                   "type": "object",
                   "additionalProperties": true,
-                  "title": "Response Snapshot Api Mercado Snapshot  Produto Id  Get"
+                  "title": "Response Snapshot Snapshot  Produto Id  Get"
                 }
               }
             }
@@ -79,13 +79,13 @@
         }
       }
     },
-    "/api/mercado/processos": {
+    "/processos": {
       "get": {
         "tags": [
           "mercado"
         ],
         "summary": "Processos Disparados",
-        "operationId": "processos_disparados_api_mercado_processos_get",
+        "operationId": "processos_disparados_processos_get",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -97,7 +97,7 @@
                     "type": "object"
                   },
                   "type": "array",
-                  "title": "Response Processos Disparados Api Mercado Processos Get"
+                  "title": "Response Processos Disparados Processos Get"
                 }
               }
             }

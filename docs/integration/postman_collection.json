@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "a1b2c3d4-e5f6-4789-89ab-cdef01234567",
     "name": "Portal B2B — Vendas (Mercado + Negociacao)",
-    "description": "Collection oficial dos REST APIs do dominio Vendas (Eq. 9). Importe e defina a variavel `{{jwt}}` (gere via `scripts/smoke_test.py` ou peca um token de teste a Guilherme). Insomnia tambem importa este formato v2.1.\n\nContratos detalhados:\n- REST: `docs/contracts/mercado.openapi.json`, `docs/contracts/negociacao.openapi.json`\n- Eventos Kafka: `docs/contracts/events/`\n\nFluxo basico:\n1. Suba a stack local (`docker compose up -d`) ou aponte para o gateway oficial.\n2. Defina `{{jwt}}` na aba Variables.\n3. Use `Mercado / GET snapshot` para ver oferta vs demanda de um produto.\n4. Use `Negociacao / GET processos` para listar processos abertos.\n5. POST lance em um processo aberto de leilao.",
+    "description": "Collection oficial dos REST APIs do dominio Vendas (Eq. 9). Importe e defina a variavel `{{jwt}}` (gere via `scripts/smoke_test.py` ou peca um token de teste a Guilherme). Insomnia tambem importa este formato v2.1.\n\nContratos detalhados:\n- REST: `docs/contracts/mercado.openapi.json`, `docs/contracts/negociacao.openapi.json`\n- Eventos Kafka: `docs/contracts/events/`\n\nFluxo basico:\n1. Suba a stack local (`docker compose -f docker-compose.yml -f docker-compose.local.yml up -d`) ou aponte para o gateway oficial.\n2. Defina `{{jwt}}` na aba Variables.\n3. Use `Mercado / GET snapshot` para ver oferta vs demanda de um produto.\n4. Use `Negociacao / GET processos` para listar processos abertos.\n5. POST lance em um processo aberto de leilao.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
@@ -82,9 +82,9 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{base_url_mercado}}/api/mercado/snapshot/{{produto_id}}",
+              "raw": "{{base_url_mercado}}/snapshot/{{produto_id}}",
               "host": ["{{base_url_mercado}}"],
-              "path": ["api", "mercado", "snapshot", "{{produto_id}}"]
+              "path": ["snapshot", "{{produto_id}}"]
             },
             "description": "Retorna o snapshot in-memory de oferta vs demanda para o produto. Util para debug do matching.\n\nResposta:\n```json\n{\n  \"produto_id\": \"...\",\n  \"total_oferta\": \"100\",\n  \"total_demanda\": \"80\",\n  \"ofertas\": [...],\n  \"demandas\": [...]\n}\n```"
           },
@@ -96,9 +96,9 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{base_url_mercado}}/api/mercado/processos",
+              "raw": "{{base_url_mercado}}/processos",
               "host": ["{{base_url_mercado}}"],
-              "path": ["api", "mercado", "processos"]
+              "path": ["processos"]
             },
             "description": "Lista todos os processos disparados pelo matching engine (in-memory, perde no restart). Para fonte autoritativa de processos, use `Negociacao / GET processos` que persiste em BD."
           },
@@ -131,9 +131,9 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{base_url_negociacao}}/api/negociacao/processos?status=ABERTO&modo=leilao_direto&limit=20",
+              "raw": "{{base_url_negociacao}}/processos?status=ABERTO&modo=leilao_direto&limit=20",
               "host": ["{{base_url_negociacao}}"],
-              "path": ["api", "negociacao", "processos"],
+              "path": ["processos"],
               "query": [
                 {"key": "status", "value": "ABERTO", "description": "ABERTO | FECHADA | CANCELADO"},
                 {"key": "modo", "value": "leilao_direto", "description": "direto | leilao_direto | leilao_reverso"},
@@ -151,9 +151,9 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{base_url_negociacao}}/api/negociacao/processos/{{processo_id}}",
+              "raw": "{{base_url_negociacao}}/processos/{{processo_id}}",
               "host": ["{{base_url_negociacao}}"],
-              "path": ["api", "negociacao", "processos", "{{processo_id}}"]
+              "path": ["processos", "{{processo_id}}"]
             },
             "description": "Detalhe + lista de lances ordenada. Retorna 404 se processo nao existe."
           },
@@ -172,9 +172,9 @@
               "options": {"raw": {"language": "json"}}
             },
             "url": {
-              "raw": "{{base_url_negociacao}}/api/negociacao/processos/{{processo_id}}/lances",
+              "raw": "{{base_url_negociacao}}/processos/{{processo_id}}/lances",
               "host": ["{{base_url_negociacao}}"],
-              "path": ["api", "negociacao", "processos", "{{processo_id}}", "lances"]
+              "path": ["processos", "{{processo_id}}", "lances"]
             },
             "description": "Registra um lance. `empresa_id` vem do claim do JWT - so admin pode usar `empresa_id_override` no body.\n\nStatus:\n- 201: lance aceito, evento `lance_realizado` publicado.\n- 403: empresa nao habilitada para o processo.\n- 404: processo nao existe.\n- 409: processo fechado ou modo nao aceita lance (modo direto)."
           },
@@ -186,9 +186,9 @@
             "method": "POST",
             "header": [],
             "url": {
-              "raw": "{{base_url_negociacao}}/api/negociacao/processos/{{processo_id}}/fechar",
+              "raw": "{{base_url_negociacao}}/processos/{{processo_id}}/fechar",
               "host": ["{{base_url_negociacao}}"],
-              "path": ["api", "negociacao", "processos", "{{processo_id}}", "fechar"]
+              "path": ["processos", "{{processo_id}}", "fechar"]
             },
             "description": "Fecha processo imediatamente com motivo `manual_admin`. Use apenas em casos excepcionais - o fluxo normal e direto fecha sozinho, leilao fecha por expiracao do data_fim."
           },

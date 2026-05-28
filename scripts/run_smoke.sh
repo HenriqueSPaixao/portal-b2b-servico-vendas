@@ -2,7 +2,7 @@
 # Wrapper do smoke test do domínio Vendas — para Git Bash / Linux / macOS / WSL.
 # Uso: scripts/run_smoke.sh
 #
-# Pré-requisitos: docker compose up -d rodando (com docker-compose.override.yml).
+# Pré-requisitos: docker compose -f docker-compose.yml -f docker-compose.local.yml up -d rodando.
 # Lê JWT_SECRET do .env na raiz (gitignored). Sai com o exit code do smoke test.
 
 set -euo pipefail
@@ -13,7 +13,7 @@ cd "$ROOT_DIR"
 # 1. Confirmar que a stack está de pé.
 if ! docker ps --format '{{.Names}}' | grep -q '^negociacao-service$'; then
     echo "ERRO: container 'negociacao-service' não está rodando."
-    echo "      Suba a stack antes: docker compose up -d"
+    echo "      Suba a stack antes: docker compose -f docker-compose.yml -f docker-compose.local.yml up -d"
     exit 1
 fi
 

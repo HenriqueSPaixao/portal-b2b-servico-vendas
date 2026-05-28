@@ -87,8 +87,8 @@ def main() -> int:
     print(f"role:       {args.role}")
     print()
     print("Abra os fronts:")
-    print(f"  Mercado     -> http://localhost:3005/?jwt={token}")
-    print(f"  Negociacao  -> http://localhost:3006/?jwt={token}")
+    print(f"  Mercado     -> http://localhost:8085/?jwt={token}")
+    print(f"  Negociacao  -> http://localhost:8086/?jwt={token}")
     print()
     return 0
 

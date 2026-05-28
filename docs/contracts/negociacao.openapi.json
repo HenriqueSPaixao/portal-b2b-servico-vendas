@@ -29,13 +29,13 @@
         }
       }
     },
-    "/api/negociacao/processos": {
+    "/processos": {
       "get": {
         "tags": [
           "negociacao"
         ],
         "summary": "List Processos",
-        "operationId": "list_processos_api_negociacao_processos_get",
+        "operationId": "list_processos_processos_get",
         "security": [
           {
             "HTTPBearer": []
@@ -112,7 +112,7 @@
                   "items": {
                     "$ref": "#/components/schemas/ProcessoOut"
                   },
-                  "title": "Response List Processos Api Negociacao Processos Get"
+                  "title": "Response List Processos Processos Get"
                 }
               }
             }
@@ -130,13 +130,13 @@
         }
       }
     },
-    "/api/negociacao/processos/{processo_id}": {
+    "/processos/{processo_id}": {
       "get": {
         "tags": [
           "negociacao"
         ],
         "summary": "Get Processo",
-        "operationId": "get_processo_api_negociacao_processos__processo_id__get",
+        "operationId": "get_processo_processos__processo_id__get",
         "security": [
           {
             "HTTPBearer": []
@@ -178,13 +178,13 @@
         }
       }
     },
-    "/api/negociacao/processos/{processo_id}/lances": {
+    "/processos/{processo_id}/lances": {
       "post": {
         "tags": [
           "negociacao"
         ],
         "summary": "Registrar Lance",
-        "operationId": "registrar_lance_api_negociacao_processos__processo_id__lances_post",
+        "operationId": "registrar_lance_processos__processo_id__lances_post",
         "security": [
           {
             "HTTPBearer": []
@@ -236,13 +236,13 @@
         }
       }
     },
-    "/api/negociacao/processos/{processo_id}/fechar": {
+    "/processos/{processo_id}/fechar": {
       "post": {
         "tags": [
           "negociacao"
         ],
         "summary": "Fechar Processo",
-        "operationId": "fechar_processo_api_negociacao_processos__processo_id__fechar_post",
+        "operationId": "fechar_processo_processos__processo_id__fechar_post",
         "security": [
           {
             "HTTPBearer": []

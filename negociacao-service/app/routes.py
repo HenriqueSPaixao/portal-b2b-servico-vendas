@@ -16,7 +16,7 @@ from app.service import (
 from b2b_shared.auth import CurrentUser, require_user
 from b2b_shared.db import get_session
 
-router = APIRouter(prefix="/api/negociacao", tags=["negociacao"])
+router = APIRouter(tags=["negociacao"])
 
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
 UserDep = Annotated[CurrentUser, Depends(require_user)]

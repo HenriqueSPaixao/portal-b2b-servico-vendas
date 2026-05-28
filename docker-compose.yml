@@ -50,7 +50,7 @@ services:
         VITE_API_BASE: ${MERCADO_API_BASE:-http://localhost:5005}
     container_name: mercado-web
     ports:
-      - "3005:80"
+      - "8085:80"
     networks:
       - portal-b2b-network
     depends_on:
@@ -64,7 +64,7 @@ services:
         VITE_API_BASE: ${NEGOCIACAO_API_BASE:-http://localhost:5006}
     container_name: negociacao-web
     ports:
-      - "3006:80"
+      - "8086:80"
     networks:
       - portal-b2b-network
     depends_on:

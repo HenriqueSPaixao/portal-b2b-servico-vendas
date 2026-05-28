@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://portal-b2b/contracts/events/publicados/lance_realizado.schema.json",
   "title": "lance_realizado",
-  "description": "Publicado por negociacao-service em cada POST /api/negociacao/processos/{id}/lances aceito. Útil para Eq.4/dashboards externos verem lances em tempo real.",
+  "description": "Publicado por negociacao-service em cada POST /processos/{id}/lances aceito (rota interna; externamente /api/negociacoes/processos/{id}/lances via gateway). Útil para Eq.4/dashboards externos verem lances em tempo real.",
   "allOf": [{"$ref": "../envelope.schema.json"}],
   "properties": {
     "eventType": {"const": "lance_realizado"},

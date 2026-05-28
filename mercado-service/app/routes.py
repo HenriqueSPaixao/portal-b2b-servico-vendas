@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, Request
 
 from b2b_shared.auth import CurrentUser, require_user
 
-router = APIRouter(prefix="/api/mercado", tags=["mercado"])
+router = APIRouter(tags=["mercado"])
 
 UserDep = Annotated[CurrentUser, Depends(require_user)]
 

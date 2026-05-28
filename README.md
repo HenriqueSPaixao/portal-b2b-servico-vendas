@@ -43,20 +43,20 @@ git clone https://github.com/matheussouza17/portal-b2b-database
 # subir
 docker network create portal-b2b-network 2>/dev/null || true
 cp .env.local .env   # se .env não existe
-docker compose up -d
+docker compose -f docker-compose.yml -f docker-compose.local.yml up -d
 ```
 
 Endpoints locais:
 - mercado: http://localhost:5005/health · /docs
 - negociacao: http://localhost:5006/health · /docs
-- **mercado-web** (UI): http://localhost:3005 — ver seção "Fronts" abaixo
-- **negociacao-web** (UI): http://localhost:3006 — ver seção "Fronts" abaixo
+- **mercado-web** (UI): http://localhost:8085 — ver seção "Fronts" abaixo
+- **negociacao-web** (UI): http://localhost:8086 — ver seção "Fronts" abaixo
 - PgAdmin: http://localhost:5050 (admin@local.dev / admin)
 - Postgres: localhost:5432 (svc_portal_b2b / senha_portal_b2b)
 - Redpanda Kafka: localhost:19092 (acesso do host) / redpanda:9092 (entre containers)
 
 Quando a infra real voltar, basta editar o `.env` apontando para Cloud SQL e
-cluster Kafka oficiais e remover/renomear `docker-compose.override.yml`.
+cluster Kafka oficiais e subir só `docker-compose.yml` (sem o `docker-compose.local.yml`).
 
 ## Dev local (sem Docker)
 
@@ -98,14 +98,16 @@ Swagger:
 
 Cada microsserviço tem seu front próprio, alinhado ao padrão visual do Portal B2B (React + Tailwind, dark mode obrigatório, verde `#4cc465`):
 
-- **mercado-web** ([mercado-web/](mercado-web/)) — porta `3005`. Página única com:
-  - Tabela "Processos disparados pelo matching" (`GET /api/mercado/processos`, refresh 5s).
-  - Painel "Snapshot por produto" (`GET /api/mercado/snapshot/{produto_id}`).
-- **negociacao-web** ([negociacao-web/](negociacao-web/)) — porta `3006`. Duas views:
-  - `/` lista de processos com filtros por status/modo/produto (`GET /api/negociacao/processos`).
+- **mercado-web** ([mercado-web/](mercado-web/)) — porta `8085`. Página única com:
+  - Tabela "Processos disparados pelo matching" (`GET /processos`, refresh 5s).
+  - Painel "Snapshot por produto" (`GET /snapshot/{produto_id}`).
+- **negociacao-web** ([negociacao-web/](negociacao-web/)) — porta `8086`. Duas views:
+  - `/` lista de processos com filtros por status/modo/produto (`GET /processos`).
   - `/processos/:id` detalhe + lances + formulário de novo lance (`POST .../lances`) + fechamento manual (`POST .../fechar`).
 
-**Handshake de JWT** (padrão de grupo): o portal pai abre `http://localhost:3005/?jwt=…` ou `http://localhost:3006/?jwt=…`; o front move o token para `sessionStorage["portal_b2b_jwt"]`, apaga `?jwt=…` da barra via `history.replaceState`, e o interceptor do axios injeta `Authorization: Bearer …` em todas as chamadas. `401` limpa o storage.
+> Os caminhos acima são as **rotas internas** dos services. Externamente, o gateway expõe como `http://34.8.17.245/api/mercado/...` e `http://34.8.17.245/api/negociacoes/...` (note: negociação é **plural** na rota externa) e remove o prefixo antes de encaminhar.
+
+**Handshake de JWT** (padrão de grupo): o portal pai abre `http://localhost:8085/?jwt=…` ou `http://localhost:8086/?jwt=…`; o front move o token para `sessionStorage["portal_b2b_jwt"]`, apaga `?jwt=…` da barra via `history.replaceState`, e o interceptor do axios injeta `Authorization: Bearer …` em todas as chamadas. `401` limpa o storage.
 
 **Para abrir manualmente em dev** (sem o portal pai injetar o token):
 
@@ -120,13 +122,13 @@ docker exec negociacao-service python /tmp/gen_jwt.py
 
 Imprime o JWT + as duas URLs prontas pra colar no navegador. Lê `JWT_SECRET`/`JWT_ISSUER`/`JWT_AUDIENCE` de env vars ou do `.env` da raiz; HS256 válido por 8h (configurável via `--ttl-hours`, `--role`, `--empresa-id`).
 
-**CORS:** os services já vêm com `CORSMiddleware` lendo `CORS_ALLOW_ORIGINS` do `.env` (default `http://localhost:3005,http://localhost:3006`).
+**CORS:** os services já vêm com `CORSMiddleware` lendo `CORS_ALLOW_ORIGINS` do `.env` (default `http://localhost:8085,http://localhost:8086`).
 
 **Subir tudo junto:**
 
 ```bash
-docker compose up --build
-# após ~30s os fronts estão disponíveis em :3005 e :3006
+docker compose -f docker-compose.yml -f docker-compose.local.yml up --build
+# após ~30s os fronts estão disponíveis em :8085 e :8086
 ```
 
 ## Integração
@@ -134,7 +136,7 @@ docker compose up --build
 - **Banco:** Cloud SQL compartilhado `136.114.235.212:5432/portal_b2b`, schema `portal_b2b`. DDL é de responsabilidade da Eq. de BD ([repo](https://github.com/matheussouza17/portal-b2b-database)).
 - **Kafka:** cluster oficial `10.128.0.2:9092,10.128.0.3:9092,10.128.0.4:9092`.
 - **JWT:** issuer `portal-autenticacao`, audience `portal-b2b`, HMAC-SHA256. Secret compartilhado entre todos os MSs.
-- **Gateway:** `/api/mercado/*` → mercado-service:5005; `/api/negociacao/*` → negociacao-service:5006 (coordenar com infra).
+- **Gateway:** `/api/mercado/*` → mercado-service:5005; `/api/negociacoes/*` → negociacao-service:5006 (note plural em negociações — padrão da infra). O gateway remove o prefixo antes de proxy, então as rotas internas dos services **não** começam com `/api/...`.
 
 ## Tópicos Kafka
 
@@ -179,7 +181,7 @@ docker exec -e JWT_SECRET=<segredo_do_env> negociacao-service python /tmp/smoke.
 O script:
 1. Insere registros mínimos em `produtos_transporte`, `produtos_categoria`, `produtos_unidade_medida`, `produtos_produto`, `empresa` para satisfazer FKs (códigos com sufixo de timestamp — cada run usa produtos novos).
 2. Publica `fornecimento_criado` + `demanda_criada` nas combinações que exercitam cada modo.
-3. Para leilões, faz POST autenticado em `/api/negociacao/processos/{id}/lances` com 2 lances distintos.
+3. Para leilões, faz POST autenticado em `/processos/{id}/lances` (rota interna do negociacao-service) com 2 lances distintos.
 4. Aguarda fechamento (auto-fecha em modo direto; scheduler fecha leilões após `data_fim`).
 5. Imprime `[OK]`/`[FAIL]` por cenário e retorna exit code 0 se tudo passar.
 
@@ -311,17 +313,19 @@ Aceitamos múltiplos esquemas de nomenclatura por compatibilidade defensiva:
 }
 ```
 
-### API REST (todas exigem `Authorization: Bearer <jwt>`)
+### API REST (todas exigem `Authorization: Bearer <jwt>` exceto `/health`)
 
-| Método | Rota | Descrição |
-|---|---|---|
-| `GET` | `/health` | público — probe de infra |
-| `GET` | `/api/mercado/snapshot/{produto_id}` | debug do snapshot in-memory (oferta vs demanda) |
-| `GET` | `/api/mercado/processos` | debug dos processos disparados pelo matching |
-| `GET` | `/api/negociacao/processos?status=&modo=&produto_id=` | listar processos |
-| `GET` | `/api/negociacao/processos/{id}` | detalhe + lista de lances |
-| `POST` | `/api/negociacao/processos/{id}/lances` | registrar lance (`empresa_id` vem do JWT) |
-| `POST` | `/api/negociacao/processos/{id}/fechar` | fechamento manual (admin) |
+Rotas **internas** dos services (o gateway externo encaminha `/api/mercado/*` e `/api/negociacoes/*` removendo o prefixo antes de proxy):
+
+| Service | Método | Rota interna | Descrição |
+|---|---|---|---|
+| ambos | `GET` | `/health` | público — probe de infra |
+| mercado-service | `GET` | `/snapshot/{produto_id}` | debug do snapshot in-memory (oferta vs demanda) |
+| mercado-service | `GET` | `/processos` | debug dos processos disparados pelo matching |
+| negociacao-service | `GET` | `/processos?status=&modo=&produto_id=` | listar processos |
+| negociacao-service | `GET` | `/processos/{id}` | detalhe + lista de lances |
+| negociacao-service | `POST` | `/processos/{id}/lances` | registrar lance (`empresa_id` vem do JWT) |
+| negociacao-service | `POST` | `/processos/{id}/fechar` | fechamento manual (admin) |
 
 JWT validado localmente — issuer `portal-autenticacao`, audience `portal-b2b`, HS256, mesma `JWT_SECRET` do MS Usuários.
 
@@ -383,13 +387,13 @@ Quando a VPN e a infra oficial do Sérgio estiverem acessíveis:
 
 6. Pedir ao Sérgio para abrir no Nginx do gateway oficial:
    - `/api/mercado/* → mercado-service:5005`
-   - `/api/negociacao/* → negociacao-service:5006`
+   - `/api/negociacoes/* → negociacao-service:5006` (note plural)
 
 7. Smoke test contra o gateway oficial (após o passo 6):
 
    ```bash
    curl http://34.8.17.245/api/mercado/health
-   curl http://34.8.17.245/api/negociacao/health
+   curl http://34.8.17.245/api/negociacoes/health
    ```
 
-Para voltar ao dev local, basta remover/renomear `docker-compose.override.yml.disabled` → `docker-compose.override.yml` e apontar `.env` para `localhost`/credenciais locais.
+Para voltar ao dev local, basta rodar `docker compose -f docker-compose.yml -f docker-compose.local.yml up -d` e apontar `.env` para `localhost`/credenciais locais.

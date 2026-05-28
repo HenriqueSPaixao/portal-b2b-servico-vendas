@@ -2,7 +2,7 @@
 REM Wrapper do smoke test do dominio Vendas - PowerShell / CMD nativos do Windows.
 REM Uso: scripts\run_smoke.bat
 REM
-REM Pre-requisitos: docker compose up -d rodando (com docker-compose.override.yml).
+REM Pre-requisitos: docker compose -f docker-compose.yml -f docker-compose.local.yml up -d rodando.
 REM Le JWT_SECRET do .env na raiz (gitignored). Sai com o exit code do smoke test.
 
 setlocal enabledelayedexpansion
@@ -14,7 +14,7 @@ REM 2. Verificar que negociacao-service esta rodando.
 docker ps --format "{{.Names}}" | findstr /B /C:"negociacao-service" >nul
 if errorlevel 1 (
     echo ERRO: container negociacao-service nao esta rodando.
-    echo       Suba a stack antes: docker compose up -d
+    echo       Suba a stack antes: docker compose -f docker-compose.yml -f docker-compose.local.yml up -d
     exit /b 1
 )
 

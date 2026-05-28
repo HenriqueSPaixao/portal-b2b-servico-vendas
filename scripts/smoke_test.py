@@ -5,7 +5,7 @@ Rodar dentro do container `negociacao-service` (já tem todas as deps):
     docker cp scripts/smoke_test.py negociacao-service:/tmp/smoke.py
     docker exec -e JWT_SECRET=... negociacao-service python /tmp/smoke.py
 
-Variáveis de ambiente esperadas (defaults para dev local com override.yml):
+Variáveis de ambiente esperadas (defaults para dev local com docker-compose.local.yml):
 - SMOKE_DB_URL       postgresql://postgres:postgres_admin_local@postgres:5432/portal_b2b
 - SMOKE_KAFKA        redpanda:9092
 - SMOKE_NEGOCIACAO   http://negociacao-service:5006
@@ -45,7 +45,7 @@ DB_URL = os.environ.get(
 )
 KAFKA = os.environ.get("SMOKE_KAFKA", "redpanda:9092")
 NEGOCIACAO_URL = os.environ.get("SMOKE_NEGOCIACAO", "http://negociacao-service:5006")
-JWT_SECRET = os.environ.get("JWT_SECRET", "ASK_GUILHERME_OR_CHECK_WHATSAPP")
+JWT_SECRET = os.environ.get("JWT_SECRET", "DAJNjnbdaibndiuabdwqbiib24141F15n5j1n")
 JWT_ISSUER = os.environ.get("JWT_ISSUER", "portal-autenticacao")
 JWT_AUDIENCE = os.environ.get("JWT_AUDIENCE", "portal-b2b")
 
@@ -226,7 +226,7 @@ async def wait_for_status(
 
 
 def post_lance(processo_id: uuid.UUID, valor: Decimal, qtd: Decimal, empresa_id: uuid.UUID) -> dict:
-    url = f"{NEGOCIACAO_URL}/api/negociacao/processos/{processo_id}/lances"
+    url = f"{NEGOCIACAO_URL}/processos/{processo_id}/lances"
     body = json.dumps({"valor_unitario": str(valor), "quantidade": str(qtd)}).encode()
     req = urllib.request.Request(
         url,

@@ -22,7 +22,7 @@ api.interceptors.response.use(
 );
 
 export const MercadoApi = {
-  listarProcessos: () => api.get('/api/mercado/processos').then((r) => r.data),
+  listarProcessos: () => api.get('/processos').then((r) => r.data),
   snapshot: (produtoId) =>
-    api.get(`/api/mercado/snapshot/${produtoId}`).then((r) => r.data),
+    api.get(`/snapshot/${produtoId}`).then((r) => r.data),
 };

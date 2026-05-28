@@ -8,7 +8,7 @@ Este documento rastreia o que está **pronto** vs **pendente** para os dois micr
 
 - [x] Backend `mercado-service` (porta 5005) — Matching Engine in-memory, 3 modos de negociação.
 - [x] Backend `negociacao-service` (porta 5006) — Processos + lances + fechamento + scheduler de leilão.
-- [x] Stack dev local (`docker-compose.override.yml`) — Postgres + Redpanda + PgAdmin, DDL aplicado de `portal-b2b-database`.
+- [x] Stack dev local (`docker-compose.local.yml`) — Postgres + Redpanda + PgAdmin, DDL aplicado de `portal-b2b-database`.
 - [x] Smoke test end-to-end ([`scripts/smoke_test.py`](../scripts/smoke_test.py)) — valida `direto`, `leilao_direto`, `leilao_reverso`. Exit code 0 = todos passam.
 - [x] Contratos REST publicados em [`docs/contracts/mercado.openapi.json`](contracts/mercado.openapi.json) e [`docs/contracts/negociacao.openapi.json`](contracts/negociacao.openapi.json).
 - [x] Contratos Kafka publicados em [`docs/contracts/events/`](contracts/events/) — 8 eventos + envelope, formato JSON Schema 2020-12.
@@ -22,7 +22,7 @@ Este documento rastreia o que está **pronto** vs **pendente** para os dois micr
 - [ ] Acesso de rede (VPN) ao Cloud SQL e ao cluster Kafka `10.128.0.2-4:9092`.
 - [ ] Nginx do gateway oficial roteando:
     - [ ] `/api/mercado/*` → `mercado-service:5005`
-    - [ ] `/api/negociacao/*` → `negociacao-service:5006`
+    - [ ] `/api/negociacoes/*` → `negociacao-service:5006` (plural — padrão da infra)
 - [ ] (Opcional, fora de escopo agora) Servir SPA na raiz `/mercado` e `/negociacao` — apenas se o grupo confirmar que UI por microsserviço é cobrada.
 
 ## ⏳ Pendente — autenticação (responsável: Guilherme)
@@ -45,7 +45,7 @@ Este documento rastreia o que está **pronto** vs **pendente** para os dois micr
 
 ## Como verificar integração rapidamente
 
-1. `docker compose up -d` (stack local).
+1. `docker compose -f docker-compose.yml -f docker-compose.local.yml up -d` (stack local).
 2. `python scripts/export_openapi.py` — gera os snapshots OpenAPI atualizados.
 3. Em um terminal: `scripts/event_tap.bat` (Windows) ou `scripts/event_tap.sh` — começa a escutar todos os tópicos.
 4. Em outro terminal: `scripts/run_smoke.bat` — dispara os 3 cenários e o event_tap mostra os 6+ eventos passando.
