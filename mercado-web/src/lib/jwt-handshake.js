@@ -7,7 +7,7 @@ export function bootstrapJwt() {
     sessionStorage.setItem(KEY, fromUrl);
     params.delete('jwt');
     const search = params.toString();
-    const url = window.location.pathname + (search ? `?${search}` : '');
+    const url = window.location.pathname + (search ? `?${search}` : '') + window.location.hash;
     window.history.replaceState({}, '', url);
   }
   return sessionStorage.getItem(KEY);

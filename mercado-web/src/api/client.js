@@ -1,7 +1,14 @@
 import axios from 'axios';
 import { getJwt, clearJwt } from '../lib/jwt-handshake.js';
 
-const BASE = import.meta.env.VITE_API_BASE || 'http://localhost:5005';
+function resolveBase() {
+  if (import.meta.env.VITE_API_BASE) return import.meta.env.VITE_API_BASE;
+  if (typeof window !== 'undefined' && window.location.hostname !== 'localhost') {
+    return `${window.location.protocol}//${window.location.host}/api/mercado`;
+  }
+  return 'http://localhost:5005';
+}
+const BASE = resolveBase();
 
 export const api = axios.create({ baseURL: BASE });
 
