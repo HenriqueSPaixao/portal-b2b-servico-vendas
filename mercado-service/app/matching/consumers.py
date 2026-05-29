@@ -4,6 +4,7 @@ from uuid import UUID
 
 from app.matching.engine import MatchingEngine
 from app.matching.snapshot import Demanda, Oferta, Snapshot
+from app.produto_cache import ProdutoCache
 from b2b_shared.events import EventEnvelope
 
 logger = logging.getLogger(__name__)
@@ -20,9 +21,31 @@ def _uuid_or_none(value) -> UUID | None:
 
 
 class MercadoConsumers:
-    def __init__(self, snapshot: Snapshot, engine: MatchingEngine) -> None:
+    def __init__(
+        self,
+        snapshot: Snapshot,
+        engine: MatchingEngine,
+        produto_cache: ProdutoCache,
+    ) -> None:
         self._snapshot = snapshot
         self._engine = engine
+        self._produto_cache = produto_cache
+
+    async def handle_produto_cadastrado(self, envelope: EventEnvelope) -> None:
+        # Payload do produtos-service (Eq.1 / Raíky) — camelCase. Aceitamos
+        # aliases snake_case por compatibilidade defensiva.
+        p = envelope.payload
+        try:
+            produto_id = UUID(p.get("id") or p["produto_id"])
+        except (KeyError, ValueError) as exc:
+            logger.error(
+                "Payload produto_cadastrado inválido",
+                extra={"event_id": str(envelope.event_id), "err": str(exc)},
+            )
+            return
+        nome = p.get("nome") or p.get("descricao")
+        codigo = p.get("codigo")
+        self._produto_cache.set(produto_id, nome=nome, codigo=codigo)
 
     async def handle_fornecimento_criado(self, envelope: EventEnvelope) -> None:
         # Aceita o contrato camelCase publicado pela Eq.3 Fornecimentos

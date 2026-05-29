@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://portal-b2b/contracts/events/consumidos/produto_cadastrado.schema.json",
+  "title": "produto_cadastrado",
+  "description": "Publicado por Eq.1 Produtos (Raíky — https://github.com/PedroVian9/SDI.Micro.Produto). Consumido por mercado-service apenas para alimentar o ProdutoCache (produto_id -> nome/codigo) que enriquece as respostas REST com nomes legíveis. O payload é em camelCase, conforme exemplo postado pelo Raíky no grupo do WhatsApp em 5/7/26 às 21:48. Aliases snake_case aceitos defensivamente.",
+  "allOf": [{"$ref": "../envelope.schema.json"}],
+  "properties": {
+    "eventType": {"const": "produto_cadastrado"},
+    "payload": {
+      "type": "object",
+      "properties": {
+        "id":               {"type": "string", "format": "uuid", "description": "UUID do produto. Forma canônica."},
+        "codigo":           {"type": "string", "description": "Código curto do produto."},
+        "nome":             {"type": "string", "description": "Nome amigável exibido na UI."},
+        "descricao":        {"type": ["string", "null"]},
+        "ativo":            {"type": "boolean"},
+        "transporteId":     {"type": ["string", "null"], "format": "uuid", "description": "IGNORADO pelo mercado-service (matching não depende de transporte)."},
+        "categoriaId":      {"type": ["string", "null"], "format": "uuid", "description": "IGNORADO pelo mercado-service."},
+        "unidadeMedidaId":  {"type": ["string", "null"], "format": "uuid", "description": "IGNORADO pelo mercado-service."},
+        "dataCadastro":     {"type": "string", "format": "date-time"},
+        "ultimaAlteracao":  {"type": ["string", "null"], "format": "date-time"},
+        "produto_id":       {"type": "string", "format": "uuid", "description": "Alias snake_case de id."}
+      },
+      "anyOf": [
+        {"required": ["id", "nome"]},
+        {"required": ["produto_id", "nome"]}
+      ]
+    }
+  }
+}

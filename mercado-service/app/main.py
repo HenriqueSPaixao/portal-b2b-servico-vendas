@@ -8,6 +8,7 @@ from app.config import get_settings
 from app.matching.consumers import MercadoConsumers
 from app.matching.engine import MatchingEngine
 from app.matching.snapshot import Snapshot
+from app.produto_cache import ProdutoCache
 from app.routes import router as mercado_router
 from b2b_shared.auth.jwt import JWTValidator
 from b2b_shared.events import Topic
@@ -35,6 +36,7 @@ async def lifespan(app: FastAPI):
     await producer.start()
 
     snapshot = Snapshot()
+    produto_cache = ProdutoCache()
     engine = MatchingEngine(
         snapshot=snapshot,
         producer=producer,
@@ -42,13 +44,16 @@ async def lifespan(app: FastAPI):
         tolerance_percent=settings.mercado_matching_tolerance_percent,
         default_auction_duration_seconds=settings.mercado_default_auction_duration_seconds,
     )
-    consumers = MercadoConsumers(snapshot=snapshot, engine=engine)
+    consumers = MercadoConsumers(
+        snapshot=snapshot, engine=engine, produto_cache=produto_cache
+    )
 
     consumer_runner = KafkaConsumerRunner(
         bootstrap_servers=settings.kafka_bootstrap_servers,
         group_id=f"{settings.service_name}-group",
         client_id=f"{settings.kafka_client_id_prefix}-{settings.service_name}-consumer",
         handlers={
+            Topic.PRODUTO_CADASTRADO.value: consumers.handle_produto_cadastrado,
             Topic.FORNECIMENTO_CRIADO.value: consumers.handle_fornecimento_criado,
             Topic.ESTOQUE_ATUALIZADO.value: consumers.handle_estoque_atualizado,
             Topic.DEMANDA_CRIADA.value: consumers.handle_demanda_criada,
@@ -60,6 +65,7 @@ async def lifespan(app: FastAPI):
     app.state.settings = settings
     app.state.producer = producer
     app.state.snapshot = snapshot
+    app.state.produto_cache = produto_cache
     app.state.matching_engine = engine
     app.state.service_name = settings.service_name
     app.state.jwt_validator = JWTValidator(

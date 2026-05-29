@@ -45,6 +45,7 @@ DB_URL = os.environ.get(
 )
 KAFKA = os.environ.get("SMOKE_KAFKA", "redpanda:9092")
 NEGOCIACAO_URL = os.environ.get("SMOKE_NEGOCIACAO", "http://negociacao-service:5006")
+MERCADO_URL = os.environ.get("SMOKE_MERCADO", "http://mercado-service:5005")
 JWT_SECRET = os.environ.get("JWT_SECRET", "DAJNjnbdaibndiuabdwqbiib24141F15n5j1n")
 JWT_ISSUER = os.environ.get("JWT_ISSUER", "portal-autenticacao")
 JWT_AUDIENCE = os.environ.get("JWT_AUDIENCE", "portal-b2b")
@@ -182,6 +183,97 @@ async def seed_base_data(conn: asyncpg.Connection, run_tag: str) -> dict[str, uu
 async def publish(producer: AIOKafkaProducer, topic: str, env: dict) -> None:
     await producer.send_and_wait(topic, orjson.dumps(env))
     print(f"  → published {topic} (eventType={env['eventType']})", flush=True)
+
+
+async def publish_produtos_cadastrados(
+    producer: AIOKafkaProducer,
+    ids: dict[str, uuid.UUID],
+    run_tag: str,
+) -> None:
+    """Publica produto_cadastrado para os 3 produtos do smoke, no formato camelCase
+    do produtos-service (Raíky). Alimenta o ProdutoCache do mercado-service
+    para que GET /processos retorne produto_nome preenchido.
+    """
+    nomes = {
+        "produto_a": f"Produto Smoke A {run_tag}",
+        "produto_b": f"Produto Smoke B {run_tag}",
+        "produto_c": f"Produto Smoke C {run_tag}",
+    }
+    for key, produto_id in ids.items():
+        if not key.startswith("produto_"):
+            continue
+        await publish(
+            producer,
+            "produto_cadastrado",
+            _envelope(
+                "produto_cadastrado",
+                {
+                    "id": str(produto_id),
+                    "codigo": f"SMOKE-{key[-1].upper()}-{run_tag}",
+                    "nome": nomes[key],
+                    "ativo": True,
+                    "dataCadastro": _now_iso(),
+                },
+                source="smoke-test/produtos",
+            ),
+        )
+    # dá tempo do mercado-service consumir antes dos cenários publicarem
+    # fornecimento_criado/demanda_criada (que disparam o matching e a montagem
+    # do processo, que já vai precisar do nome no GET /processos).
+    await asyncio.sleep(1.5)
+
+
+def fetch_processos_mercado() -> list[dict]:
+    """GET /processos do mercado-service com JWT smoke. Usado para assert
+    de produto_nome no fim do smoke."""
+    token = _make_jwt(uuid.uuid4())
+    req = urllib.request.Request(
+        f"{MERCADO_URL}/processos",
+        headers={"Authorization": f"Bearer {token}"},
+        method="GET",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            return json.loads(resp.read().decode())
+    except urllib.error.HTTPError as exc:
+        return [{"_http_error": exc.code, "_body": exc.read().decode()}]
+
+
+def validar_produto_nome_enriquecido(
+    ids: dict[str, uuid.UUID],
+) -> dict:
+    """Confirma que GET /processos do mercado-service retorna produto_nome
+    preenchido — prova que o consumer de produto_cadastrado + o ProdutoCache
+    + a rota enriquecida estão wired corretamente."""
+    print("\n=== Validação: produto_nome enriquecido em GET /processos ===", flush=True)
+    processos = fetch_processos_mercado()
+    if processos and isinstance(processos[0], dict) and "_http_error" in processos[0]:
+        return {
+            "ok": False,
+            "erro": f"GET /processos falhou: {processos[0]['_http_error']} {processos[0]['_body']}",
+        }
+    alvo_ids = {str(ids[k]) for k in ("produto_a", "produto_b", "produto_c") if k in ids}
+    matches = [p for p in processos if p.get("produto_id") in alvo_ids]
+    if not matches:
+        return {
+            "ok": False,
+            "erro": "Nenhum processo dos produtos do smoke voltou em /processos",
+        }
+    faltando = [p for p in matches if not p.get("produto_nome")]
+    if faltando:
+        return {
+            "ok": False,
+            "erro": (
+                f"{len(faltando)} processo(s) com produto_nome ausente "
+                f"(produto_ids={[p['produto_id'] for p in faltando]})"
+            ),
+        }
+    print(
+        f"  OK: {len(matches)} processo(s) com produto_nome preenchido. "
+        f"Exemplos: {[(p['produto_nome'], p['produto_id'][:8]) for p in matches[:3]]}",
+        flush=True,
+    )
+    return {"ok": True, "processos_validados": len(matches)}
 
 
 async def wait_for_processo(
@@ -455,10 +547,14 @@ async def main() -> int:
             for k, v in ids.items():
                 print(f"  {k} = {v}")
 
+            print("\nPublicando produto_cadastrado para alimentar ProdutoCache...")
+            await publish_produtos_cadastrados(producer, ids, run_tag)
+
             results = {
                 "A_direto": await cenario_direto(conn, producer, ids),
                 "B_leilao_direto": await cenario_leilao_direto(conn, producer, ids),
                 "C_leilao_reverso": await cenario_leilao_reverso(conn, producer, ids),
+                "D_produto_nome": validar_produto_nome_enriquecido(ids),
             }
     finally:
         await producer.stop()

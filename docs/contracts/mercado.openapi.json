@@ -2,8 +2,8 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Mercado Service",
-    "description": "Matching Engine do Portal B2B. Consome oferta/demanda do Kafka, decide modo (direto/leilão direto/leilão reverso) e publica modo_negociacao_definido + leilao_iniciado.",
-    "version": "0.1.0"
+    "description": "Matching Engine do Portal B2B. Consome `fornecimento_criado`, `estoque_atualizado`, `demanda_criada`, `demanda_recorrente_gerada` e `produto_cadastrado` do Kafka, decide modo (direto/leilão direto/leilão reverso) e publica `modo_negociacao_definido` + `leilao_iniciado`. Mantém cache in-memory de produtos para enriquecer respostas com `produto_nome`/`produto`, sem chamar produtos-service via REST.",
+    "version": "0.2.0"
   },
   "paths": {
     "/health": {
@@ -86,6 +86,7 @@
         ],
         "summary": "Processos Disparados",
         "operationId": "processos_disparados_processos_get",
+        "description": "Cada item inclui `produto_nome` (string|null) — preenchido com o cache de `produto_cadastrado`; null se o produto ainda não foi visto pelo consumer.",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -98,6 +99,43 @@
                   },
                   "type": "array",
                   "title": "Response Processos Disparados Processos Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/produtos": {
+      "get": {
+        "tags": [
+          "mercado"
+        ],
+        "summary": "Produtos Conhecidos",
+        "operationId": "produtos_conhecidos_produtos_get",
+        "description": "Lista produtos vistos via `produto_cadastrado` no Kafka, ordenados por nome. Usado pelo autocomplete do mercado-web (mapeia nome -> produto_id sem expor UUID ao usuário). Vazio até o primeiro evento chegar.",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "produto_id": {"type": "string", "format": "uuid"},
+                      "nome": {"type": ["string", "null"]},
+                      "codigo": {"type": ["string", "null"]}
+                    },
+                    "required": ["produto_id"]
+                  },
+                  "title": "Response Produtos Conhecidos Produtos Get"
                 }
               }
             }
