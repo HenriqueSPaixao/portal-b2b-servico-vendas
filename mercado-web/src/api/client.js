@@ -32,4 +32,5 @@ export const MercadoApi = {
   listarProcessos: () => api.get('/processos').then((r) => r.data),
   snapshot: (produtoId) =>
     api.get(`/snapshot/${produtoId}`).then((r) => r.data),
+  listarProdutos: () => api.get('/produtos').then((r) => r.data),
 };

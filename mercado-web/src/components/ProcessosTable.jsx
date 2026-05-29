@@ -102,7 +102,13 @@ export default function ProcessosTable() {
               {items.map((p, i) => (
                 <tr key={p.processo_id || p.id || i}>
                   <td className="px-5 py-2"><ModoBadge modo={p.modo} /></td>
-                  <td className="px-5 py-2 font-mono text-xs" title={p.produto_id}>{truncate(p.produto_id)}</td>
+                  <td className="px-5 py-2" title={p.produto_id}>
+                    {p.produto_nome ? (
+                      <span>{p.produto_nome}</span>
+                    ) : (
+                      <span className="font-mono text-xs">{truncate(p.produto_id)}</span>
+                    )}
+                  </td>
                   <td className="px-5 py-2">{p.status || '—'}</td>
                   <td className="px-5 py-2">{fmtDate(p.data_inicio)}</td>
                   <td className="px-5 py-2">{fmtDate(p.data_fim)}</td>

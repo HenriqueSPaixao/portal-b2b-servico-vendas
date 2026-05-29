@@ -1,25 +1,50 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { MercadoApi } from '../api/client.js';
 
-const UUID_RE = /^[0-9a-fA-F-]{32,36}$/;
-
 export default function SnapshotPanel() {
-  const [produtoId, setProdutoId] = useState('');
+  const [produtos, setProdutos] = useState([]);
+  const [nomeBusca, setNomeBusca] = useState('');
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
+
+  // Carrega a lista de produtos uma vez ao montar; recarrega ao concluir busca
+  // para captar produtos novos que chegaram via Kafka enquanto o usuário usa.
+  async function loadProdutos() {
+    try {
+      const list = await MercadoApi.listarProdutos();
+      setProdutos(Array.isArray(list) ? list : []);
+    } catch {
+      // silencioso: se /produtos falhar, o autocomplete fica vazio mas o
+      // restante da tela continua usável.
+    }
+  }
+
+  useEffect(() => {
+    loadProdutos();
+  }, []);
+
+  function findProdutoIdByNome(nome) {
+    const alvo = (nome || '').trim().toLowerCase();
+    if (!alvo) return null;
+    const match = produtos.find((p) => (p.nome || '').toLowerCase() === alvo);
+    return match ? match.produto_id : null;
+  }
 
   async function handleSubmit(e) {
     e.preventDefault();
     setError(null);
     setData(null);
-    if (!UUID_RE.test(produtoId.trim())) {
-      setError('UUID inválido.');
+    const produtoId = findProdutoIdByNome(nomeBusca);
+    if (!produtoId) {
+      setError(
+        'Produto não encontrado nos eventos do Kafka. Aguarde a Eq. Produtos publicar `produto_cadastrado` para este produto.'
+      );
       return;
     }
     setLoading(true);
     try {
-      const result = await MercadoApi.snapshot(produtoId.trim());
+      const result = await MercadoApi.snapshot(produtoId);
       setData(result);
     } catch (err) {
       const code = err.response?.status;
@@ -28,6 +53,7 @@ export default function SnapshotPanel() {
       else setError(`Erro ${code || ''} ao consultar snapshot.`);
     } finally {
       setLoading(false);
+      loadProdutos();
     }
   }
 
@@ -36,6 +62,7 @@ export default function SnapshotPanel() {
   const totais = data
     ? { oferta: data.total_oferta, demanda: data.total_demanda }
     : null;
+  const produtoInfo = data?.produto || null;
 
   return (
     <div className="card">
@@ -43,21 +70,44 @@ export default function SnapshotPanel() {
       <form onSubmit={handleSubmit} className="flex gap-2 mb-3">
         <input
           type="text"
-          value={produtoId}
-          onChange={(e) => setProdutoId(e.target.value)}
-          placeholder="produto_id (UUID)"
-          className="input font-mono text-xs"
-          aria-label="UUID do produto"
+          value={nomeBusca}
+          onChange={(e) => setNomeBusca(e.target.value)}
+          placeholder="Nome do produto"
+          className="input"
+          list="produtos-list"
+          aria-label="Nome do produto"
+          autoComplete="off"
         />
+        <datalist id="produtos-list">
+          {produtos.map((p) => (
+            <option
+              key={p.produto_id}
+              value={p.nome || ''}
+              label={p.codigo ? `código ${p.codigo}` : undefined}
+            />
+          ))}
+        </datalist>
         <button type="submit" className="btn-primary" disabled={loading}>
           {loading ? '…' : 'Buscar'}
         </button>
       </form>
+      {produtos.length === 0 && !error && (
+        <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-3">
+          Nenhum produto conhecido ainda. Aguardando eventos <code>produto_cadastrado</code> do Kafka.
+        </p>
+      )}
       {error && (
         <p className="text-sm text-rose-600 dark:text-rose-400 mb-3">{error}</p>
       )}
       {data && (
         <>
+          {produtoInfo && (
+            <div className="text-xs text-zinc-500 dark:text-zinc-400 mb-3">
+              <span className="font-semibold text-zinc-700 dark:text-zinc-200">{produtoInfo.nome}</span>
+              {produtoInfo.codigo && <> · código <code>{produtoInfo.codigo}</code></>}
+              <> · <span className="font-mono">{produtoInfo.id}</span></>
+            </div>
+          )}
           {totais && (
             <div className="grid grid-cols-2 gap-3 mb-3">
               <div className="rounded-md bg-brand-green/10 p-2 text-center">
