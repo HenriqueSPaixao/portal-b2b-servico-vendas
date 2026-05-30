@@ -136,3 +136,18 @@ class MercadoConsumers:
         # O domínio Demanda é que gera o evento por ciclo.
         envelope.payload.setdefault("is_recorrente", True)
         await self.handle_demanda_criada(envelope)
+
+    async def handle_pedido_criado(self, envelope: EventEnvelope) -> None:
+        # Eq.4 Demanda (Adrii) publica `pedido_criado` quando "promove" uma
+        # demanda (wishlist com estoque validado do lado dela). Para o matching,
+        # tratamos exatamente como `demanda_criada` — o payload tem os mesmos
+        # campos (id_demanda/id_produto/id_empresa_comprador/quantidade/
+        # preco_maximo) e os fallbacks do handle_demanda_criada já cobrem.
+        # IGNORAMOS `id_fornecedor_apto` que vem no payload dela: a escolha do
+        # fornecedor é o trabalho do nosso matching engine olhando TODAS as
+        # ofertas ativas no Kafka, não apenas a pré-validação local que ela faz.
+        logger.info(
+            "pedido_criado recebido — tratando como gatilho de matching",
+            extra={"event_id": str(envelope.event_id)},
+        )
+        await self.handle_demanda_criada(envelope)

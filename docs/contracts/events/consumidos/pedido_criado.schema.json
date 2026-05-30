@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://portal-b2b/contracts/events/consumidos/pedido_criado.schema.json",
+  "title": "pedido_criado",
+  "description": "Publicado por Eq.4 Demanda (Adrii — https://github.com/GabrielSLange/modulo-compradores), em backend/Services/demanda_service.py:publicar_pedido_criado, no fluxograma de 'Enviar pedido para negociação' (validado com o professor pela Eq.4 em 26/05/26). Consumido por mercado-service como gatilho equivalente a `demanda_criada`: dispara o matching engine para o produto/empresa. O campo `id_fornecedor_apto` que vem no payload é IGNORADO porque a escolha do fornecedor é responsabilidade do nosso matching engine (vê todas as ofertas no Kafka, decide modo direto/leilão direto/reverso). O pré-filtro local da Eq.4 não substitui esse trabalho.",
+  "allOf": [{"$ref": "../envelope.schema.json"}],
+  "properties": {
+    "eventType": {"const": "pedido_criado"},
+    "payload": {
+      "type": "object",
+      "properties": {
+        "id_demanda":            {"type": "string", "format": "uuid", "description": "UUID da demanda promovida a pedido — usado como demanda_id no snapshot do mercado."},
+        "id_empresa_comprador":  {"type": "string", "format": "uuid"},
+        "id_produto":            {"type": "string", "format": "uuid"},
+        "quantidade":            {"type": "number", "description": "Quantidade desejada do pedido (no demanda_criada o nome é quantidade_desejada; aqui é só quantidade)."},
+        "preco_maximo":          {"type": ["number", "null"]},
+        "prioridade":            {"type": ["integer", "null"]},
+        "id_fornecedor_apto":    {"type": "string", "format": "uuid", "description": "IGNORADO pelo mercado-service. Eq.4 embarca por pré-validação local; nosso matching decide o vencedor olhando todas as ofertas."}
+      },
+      "required": ["id_demanda", "id_empresa_comprador", "id_produto", "quantidade"]
+    }
+  }
+}

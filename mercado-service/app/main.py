@@ -58,6 +58,10 @@ async def lifespan(app: FastAPI):
             Topic.ESTOQUE_ATUALIZADO.value: consumers.handle_estoque_atualizado,
             Topic.DEMANDA_CRIADA.value: consumers.handle_demanda_criada,
             Topic.DEMANDA_RECORRENTE_GERADA.value: consumers.handle_demanda_recorrente_gerada,
+            # Adoção do fluxograma da Eq.4 (Adrii): pedido_criado é o gatilho
+            # do leilão pelo lado dela. Aceitamos ambos os eventos como entrada
+            # para zero retrabalho de cada lado. Ver consumers.handle_pedido_criado.
+            Topic.PEDIDO_CRIADO.value: consumers.handle_pedido_criado,
         },
     )
     await consumer_runner.start()

@@ -1,6 +1,6 @@
 # Status da integração — domínio Vendas
 
-Última atualização: 2026-05-18 · Responsável: Henrique (Mercado + Negociação)
+Última atualização: 2026-05-30 · Responsável: Henrique (Mercado + Negociação)
 
 Este documento rastreia o que está **pronto** vs **pendente** para os dois microsserviços rodarem contra a infra oficial do Portal B2B (Cloud SQL + cluster Kafka + gateway Nginx) e serem consumidos pelas outras equipes.
 
@@ -35,13 +35,16 @@ Este documento rastreia o que está **pronto** vs **pendente** para os dois micr
 | Equipe | Quem | O que falta |
 |---|---|---|
 | 3 Fornecimentos | Eliel | Publicar `fornecimento_criado` e `estoque_atualizado` no cluster oficial seguindo [`fornecimento_criado.schema.json`](contracts/events/consumidos/fornecimento_criado.schema.json) e [`estoque_atualizado.schema.json`](contracts/events/consumidos/estoque_atualizado.schema.json). |
-| 4 Demanda | Adrielly | Publicar `demanda_criada` / `demanda_recorrente_gerada` seguindo [`demanda_criada.schema.json`](contracts/events/consumidos/demanda_criada.schema.json). Consumir `negociacao_fechada` para criar `pedido_criado`. |
+| 4 Demanda | Adrielly | Publicar `demanda_criada` / `demanda_recorrente_gerada` / `pedido_criado` seguindo seu fluxograma validado com o professor — todos os 3 agora funcionam como gatilho do nosso matching. Consumir `negociacao_fechada` para promover/atualizar pedido. Repo: https://github.com/GabrielSLange/modulo-compradores |
 | Portal / Frontend | (a confirmar) | Decisão se cada microsserviço entrega UI própria ou só o portal central consome nossos REST. Pendente da resposta no grupo SD. |
 
 ## ❓ Decisões abertas
 
 - **UI por microsserviço:** pendente confirmação com o grupo (mensagem no WhatsApp). Se for cobrado, plano de fronts React+Tailwind está pronto para ser iniciado (~6h por front, padrão verde `#4cc465` + accent por domínio — cyan no Mercado, âmbar na Negociação).
-- **Tópico `pedido_criado`:** nós não criamos pedido. Eq.4 deve confirmar que está consumindo `negociacao_fechada` e gerando `pedido_criado` na sequência ([README.md:200-216](../README.md#L200-L216) tem o payload self-contained).
+
+## ✓ Decisões fechadas
+
+- **Tópico `pedido_criado` (resolvido em 30/05/26):** Eq.4 (Adrii) levantou divergência sobre `demanda_criada` vs `pedido_criado` como gatilho do matching. Confirmado pelo código deles (`backend/Services/demanda_service.py`) que os payloads de ambos eventos batem com o que o `mercado-service` consome. Adotada a solução de **aceitar ambos os eventos** como gatilho do matching (ver [`pedido_criado.schema.json`](contracts/events/consumidos/pedido_criado.schema.json) e `consumers.handle_pedido_criado`). Zero retrabalho do lado deles, 2 linhas do nosso lado. O `id_fornecedor_apto` que ela embarca em `pedido_criado` é ignorado — escolha de fornecedor continua sendo do matching engine. Eq.4 segue criando pedidos a partir de `negociacao_fechada` que publicamos.
 
 ## Como verificar integração rapidamente
 
