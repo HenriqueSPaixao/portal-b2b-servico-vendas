@@ -8,15 +8,12 @@ export default function SnapshotPanel() {
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  // Carrega a lista de produtos uma vez ao montar; recarrega ao concluir busca
-  // para captar produtos novos que chegaram via Kafka enquanto o usuário usa.
   async function loadProdutos() {
     try {
       const list = await MercadoApi.listarProdutos();
       setProdutos(Array.isArray(list) ? list : []);
     } catch {
-      // silencioso: se /produtos falhar, o autocomplete fica vazio mas o
-      // restante da tela continua usável.
+      // silencioso: autocomplete fica vazio mas o resto da tela continua usável
     }
   }
 
@@ -64,9 +61,16 @@ export default function SnapshotPanel() {
     : null;
   const produtoInfo = data?.produto || null;
 
+  const totalFornecedores = new Set(
+    oferta.map((o) => o.empresa_fornecedor_id).filter(Boolean)
+  ).size;
+  const totalCompradores = new Set(
+    demanda.map((d) => d.empresa_comprador_id).filter(Boolean)
+  ).size;
+
   return (
     <div className="card">
-      <h2 className="font-semibold mb-3">Snapshot por produto</h2>
+      <h2 className="font-semibold mb-3">Oferta e demanda por produto</h2>
       <form onSubmit={handleSubmit} className="flex gap-2 mb-3">
         <input
           type="text"
@@ -102,38 +106,37 @@ export default function SnapshotPanel() {
       {data && (
         <>
           {produtoInfo && (
-            <div className="text-xs text-zinc-500 dark:text-zinc-400 mb-3">
-              <span className="font-semibold text-zinc-700 dark:text-zinc-200">{produtoInfo.nome}</span>
-              {produtoInfo.codigo && <> · código <code>{produtoInfo.codigo}</code></>}
-              <> · <span className="font-mono">{produtoInfo.id}</span></>
+            <div className="mb-4">
+              <div className="font-semibold text-base">{produtoInfo.nome}</div>
+              {produtoInfo.codigo && (
+                <div className="text-xs text-zinc-500 dark:text-zinc-400">
+                  Código <span className="font-mono">{produtoInfo.codigo}</span>
+                </div>
+              )}
             </div>
           )}
           {totais && (
-            <div className="grid grid-cols-2 gap-3 mb-3">
-              <div className="rounded-md bg-brand-green/10 p-2 text-center">
-                <div className="text-xs text-zinc-500 dark:text-zinc-400">Total oferta</div>
-                <div className="font-mono font-semibold text-brand-green">{totais.oferta ?? '—'}</div>
+            <div className="grid grid-cols-2 gap-3 mb-4">
+              <div className="rounded-md bg-brand-green/10 p-3 text-center">
+                <div className="text-xs text-zinc-500 dark:text-zinc-400">Oferta total</div>
+                <div className="font-mono font-semibold text-lg text-brand-green">{totais.oferta ?? '—'}</div>
+                <div className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+                  {totalFornecedores === 1
+                    ? '1 fornecedor disponível'
+                    : `${totalFornecedores} fornecedores disponíveis`}
+                </div>
               </div>
-              <div className="rounded-md bg-amber-500/10 p-2 text-center">
-                <div className="text-xs text-zinc-500 dark:text-zinc-400">Total demanda</div>
-                <div className="font-mono font-semibold text-amber-600 dark:text-amber-400">{totais.demanda ?? '—'}</div>
+              <div className="rounded-md bg-amber-500/10 p-3 text-center">
+                <div className="text-xs text-zinc-500 dark:text-zinc-400">Demanda total</div>
+                <div className="font-mono font-semibold text-lg text-amber-600 dark:text-amber-400">{totais.demanda ?? '—'}</div>
+                <div className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+                  {totalCompradores === 1
+                    ? '1 comprador interessado'
+                    : `${totalCompradores} compradores interessados`}
+                </div>
               </div>
             </div>
           )}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-            <div className="rounded-md border border-zinc-200 dark:border-zinc-800 p-3">
-              <div className="font-medium mb-1 text-brand-green">Ofertas ({oferta.length})</div>
-              <pre className="overflow-x-auto whitespace-pre-wrap break-all">
-                {JSON.stringify(oferta, null, 2)}
-              </pre>
-            </div>
-            <div className="rounded-md border border-zinc-200 dark:border-zinc-800 p-3">
-              <div className="font-medium mb-1 text-amber-600 dark:text-amber-400">Demandas ({demanda.length})</div>
-              <pre className="overflow-x-auto whitespace-pre-wrap break-all">
-                {JSON.stringify(demanda, null, 2)}
-              </pre>
-            </div>
-          </div>
         </>
       )}
     </div>
