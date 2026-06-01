@@ -33,6 +33,7 @@ def _service_from_request(request: Request, session: AsyncSession) -> Negociacao
 
 @router.get("/processos", response_model=list[ProcessoOut])
 async def list_processos(
+    request: Request,
     session: SessionDep,
     _user: UserDep,
     status_: Annotated[str | None, Query(alias="status")] = None,
@@ -44,12 +45,19 @@ async def list_processos(
     rows = await repo.list_(
         status=status_, modo=modo, produto_id=produto_id, limit=limit
     )
-    return [ProcessoOut.model_validate(r) for r in rows]
+    cache = request.app.state.produto_cache
+    result: list[ProcessoOut] = []
+    for r in rows:
+        item = ProcessoOut.model_validate(r)
+        item.produto_nome = cache.get_nome(item.produto_id)
+        result.append(item)
+    return result
 
 
 @router.get("/processos/{processo_id}", response_model=ProcessoDetalhadoOut)
 async def get_processo(
     processo_id: UUID,
+    request: Request,
     session: SessionDep,
     _user: UserDep,
 ) -> ProcessoDetalhadoOut:
@@ -59,7 +67,18 @@ async def get_processo(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Processo não encontrado"
         )
-    return ProcessoDetalhadoOut.model_validate(processo)
+    detalhado = ProcessoDetalhadoOut.model_validate(processo)
+    detalhado.produto_nome = request.app.state.produto_cache.get_nome(detalhado.produto_id)
+    return detalhado
+
+
+@router.get("/produtos")
+async def produtos_conhecidos(request: Request, _user: UserDep) -> list[dict]:
+    """Lista produtos vistos via `produto_cadastrado` no Kafka, ordenados por
+    nome. Usado pelo autocomplete do negociacao-web (mapeia nome -> produto_id
+    sem expor UUID ao usuário). Vazio até o primeiro evento chegar."""
+    cache = request.app.state.produto_cache
+    return cache.list_all()
 
 
 @router.post(

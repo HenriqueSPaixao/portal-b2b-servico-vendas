@@ -55,7 +55,7 @@ export default function ProcessoDetalhe() {
   }, [load]);
 
   async function handleFechar() {
-    if (!window.confirm('Fechar este processo agora? Esta ação publica negociacao_fechada e não pode ser desfeita.')) {
+    if (!window.confirm('Encerrar este processo agora? Esta ação não pode ser desfeita.')) {
       return;
     }
     setClosing(true);
@@ -63,7 +63,12 @@ export default function ProcessoDetalhe() {
       await NegociacaoApi.fechar(id);
       await load();
     } catch (err) {
-      alert(`Erro ao fechar: ${err.response?.status || ''} ${err.response?.data?.detail || ''}`);
+      const detalhe = err.response?.data?.detail;
+      alert(
+        typeof detalhe === 'string' && detalhe
+          ? `Não foi possível encerrar: ${detalhe}`
+          : 'Não foi possível encerrar o processo no momento.'
+      );
     } finally {
       setClosing(false);
     }
@@ -78,7 +83,7 @@ export default function ProcessoDetalhe() {
       {error === 'jwt' && (
         <div className="card">
           <p className="text-sm text-amber-600 dark:text-amber-400">
-            Sem JWT. Abra com <code>?jwt=…</code> ou rode <code>python scripts/gen_jwt.py</code>.
+            Sessão expirada. Acesse novamente pelo portal para continuar.
           </p>
         </div>
       )}
@@ -90,7 +95,7 @@ export default function ProcessoDetalhe() {
       {error === 'fetch' && (
         <div className="card">
           <p className="text-sm text-rose-600 dark:text-rose-400">
-            Erro ao carregar processo.
+            Não foi possível carregar este processo no momento. Tente novamente em alguns segundos.
           </p>
         </div>
       )}
@@ -112,8 +117,15 @@ export default function ProcessoDetalhe() {
               </div>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <InfoRow label="ID"><span className="font-mono text-xs">{processo.id}</span></InfoRow>
-              <InfoRow label="Produto"><span className="font-mono text-xs">{processo.produto_id}</span></InfoRow>
+              <InfoRow label="Produto">
+                {processo.produto_nome ? (
+                  <span title={processo.produto_id}>{processo.produto_nome}</span>
+                ) : (
+                  <span className="font-mono text-xs" title={processo.produto_id}>
+                    sem nome (aguardando produto_cadastrado)
+                  </span>
+                )}
+              </InfoRow>
               <InfoRow label="Início">{fmtDate(processo.data_inicio)}</InfoRow>
               <InfoRow label="Fim">{fmtDate(processo.data_fim)}</InfoRow>
               <InfoRow label="Valor reserva"><span className="font-mono">{processo.valor_reserva ?? '—'}</span></InfoRow>
@@ -139,12 +151,12 @@ export default function ProcessoDetalhe() {
 
           {processo.status === 'ABERTO' && (
             <div className="card">
-              <h2 className="font-semibold mb-1">Fechamento manual (admin)</h2>
+              <h2 className="font-semibold mb-1">Encerrar processo</h2>
               <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-3">
-                Encerra o processo agora e publica <code>negociacao_fechada</code>.
+                Encerra o processo imediatamente com o resultado parcial.
               </p>
               <button type="button" className="btn-danger" disabled={closing} onClick={handleFechar}>
-                {closing ? 'Fechando…' : 'Fechar processo'}
+                {closing ? 'Encerrando…' : 'Encerrar processo'}
               </button>
             </div>
           )}

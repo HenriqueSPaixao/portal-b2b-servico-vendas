@@ -28,6 +28,7 @@ class ProcessoOut(BaseModel):
 
     id: UUID
     produto_id: UUID
+    produto_nome: str | None = None
     modo: ModoLiteral
     status: StatusLiteral
     data_inicio: datetime

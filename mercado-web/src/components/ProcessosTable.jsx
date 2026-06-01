@@ -70,12 +70,12 @@ export default function ProcessosTable() {
       </div>
       {error === 'jwt' && (
         <p className="text-sm text-amber-600 dark:text-amber-400">
-          Sem JWT. Abra com <code>?jwt=…</code> ou rode <code>python scripts/gen_jwt.py</code>.
+          Sessão expirada. Acesse novamente pelo portal para continuar.
         </p>
       )}
       {error === 'fetch' && (
         <p className="text-sm text-rose-600 dark:text-rose-400">
-          Erro ao consultar o mercado-service. Está rodando em {import.meta.env.VITE_API_BASE || 'http://localhost:5005'}?
+          Não foi possível carregar os processos no momento. Tente novamente em alguns segundos.
         </p>
       )}
       {!error && loading && (
@@ -83,7 +83,7 @@ export default function ProcessosTable() {
       )}
       {!error && !loading && items.length === 0 && (
         <p className="text-sm text-zinc-500 dark:text-zinc-400">
-          Nenhum matching disparado ainda. Publique <code>fornecimento_criado</code> + <code>demanda_criada</code> ou rode <code>./scripts/run_smoke.sh</code>.
+          Nenhum processo de negociação disparado ainda. Eles aparecem aqui assim que oferta e demanda se cruzarem em um produto.
         </p>
       )}
       {!error && items.length > 0 && (

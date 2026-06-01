@@ -25,7 +25,11 @@ export default function LanceForm({ processoId, onSuccess }) {
       onSuccess?.();
     } catch (err) {
       const msg = err.response?.data?.detail;
-      setError(typeof msg === 'string' ? msg : `Erro ${err.response?.status || ''} ao registrar lance.`);
+      setError(
+        typeof msg === 'string' && msg
+          ? msg
+          : 'Não foi possível registrar o lance no momento. Tente novamente em alguns segundos.'
+      );
     } finally {
       setSubmitting(false);
     }

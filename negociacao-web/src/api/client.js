@@ -37,4 +37,5 @@ export const NegociacaoApi = {
     api.post(`/processos/${id}/lances`, body).then((r) => r.data),
   fechar: (id) =>
     api.post(`/processos/${id}/fechar`).then((r) => r.data),
+  listarProdutos: () => api.get('/produtos').then((r) => r.data),
 };

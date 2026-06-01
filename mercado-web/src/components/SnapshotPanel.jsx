@@ -38,7 +38,7 @@ export default function SnapshotPanel() {
     const produtoId = findProdutoIdByNome(nomeBusca);
     if (!produtoId) {
       setError(
-        'Produto não encontrado nos eventos do Kafka. Aguarde a Eq. Produtos publicar `produto_cadastrado` para este produto.'
+        'Produto não encontrado. Digite o nome exato como aparece na lista de sugestões.'
       );
       return;
     }
@@ -48,9 +48,9 @@ export default function SnapshotPanel() {
       setData(result);
     } catch (err) {
       const code = err.response?.status;
-      if (code === 404) setError('Sem dados para este produto.');
-      else if (code === 401) setError('JWT inválido ou expirado.');
-      else setError(`Erro ${code || ''} ao consultar snapshot.`);
+      if (code === 404) setError('Ainda não temos dados de oferta ou demanda para este produto.');
+      else if (code === 401) setError('Sessão expirada. Acesse novamente pelo portal para continuar.');
+      else setError('Não foi possível consultar este produto no momento. Tente novamente em alguns segundos.');
     } finally {
       setLoading(false);
       loadProdutos();
@@ -93,7 +93,7 @@ export default function SnapshotPanel() {
       </form>
       {produtos.length === 0 && !error && (
         <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-3">
-          Nenhum produto conhecido ainda. Aguardando eventos <code>produto_cadastrado</code> do Kafka.
+          Nenhum produto disponível ainda. Aguarde alguns instantes e tente novamente.
         </p>
       )}
       {error && (

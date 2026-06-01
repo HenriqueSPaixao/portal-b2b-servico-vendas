@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from app.enums import ModoNegociacao
 from app.metadata_cache import ProcessoMeta, ProcessoMetaCache
+from app.produto_cache import ProdutoCache
 from app.service import NegociacaoService
 from b2b_shared.events import EventEnvelope
 from b2b_shared.kafka import KafkaProducer
@@ -52,12 +53,29 @@ class NegociacaoConsumers:
         session_factory: async_sessionmaker,
         producer: KafkaProducer,
         metadata: ProcessoMetaCache,
+        produto_cache: ProdutoCache,
         source_name: str,
     ) -> None:
         self._session_factory = session_factory
         self._producer = producer
         self._metadata = metadata
+        self._produto_cache = produto_cache
         self._source = source_name
+
+    async def handle_produto_cadastrado(self, envelope: EventEnvelope) -> None:
+        # Payload do produtos-service (Eq.1 / Raíky) — camelCase.
+        p = envelope.payload
+        try:
+            produto_id = UUID(p.get("id") or p["produto_id"])
+        except (KeyError, ValueError) as exc:
+            logger.error(
+                "Payload produto_cadastrado inválido",
+                extra={"event_id": str(envelope.event_id), "err": str(exc)},
+            )
+            return
+        nome = p.get("nome") or p.get("descricao")
+        codigo = p.get("codigo")
+        self._produto_cache.set(produto_id, nome=nome, codigo=codigo)
 
     async def handle_modo_negociacao_definido(self, envelope: EventEnvelope) -> None:
         payload = envelope.payload

@@ -13,19 +13,42 @@ export default function ProcessosList() {
   const navigate = useNavigate();
   const [status, setStatus] = useState('');
   const [modo, setModo] = useState('');
-  const [produtoId, setProdutoId] = useState('');
+  const [produtoNome, setProdutoNome] = useState('');
+  const [produtos, setProdutos] = useState([]);
   const [items, setItems] = useState([]);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
   const lastQuery = useRef({});
 
+  // Lista de produtos para autocomplete por nome (alimentada pelo ProdutoCache).
+  async function loadProdutos() {
+    try {
+      const list = await NegociacaoApi.listarProdutos();
+      setProdutos(Array.isArray(list) ? list : []);
+    } catch {
+      // silencioso: autocomplete fica vazio mas o resto da tela continua usável
+    }
+  }
+
+  useEffect(() => {
+    loadProdutos();
+  }, []);
+
+  function findProdutoIdByNome(nome) {
+    const alvo = (nome || '').trim().toLowerCase();
+    if (!alvo) return null;
+    const match = produtos.find((p) => (p.nome || '').toLowerCase() === alvo);
+    return match ? match.produto_id : null;
+  }
+
   const query = useMemo(() => {
     const q = { limit: 100 };
     if (status) q.status = status;
     if (modo) q.modo = modo;
-    if (produtoId.trim()) q.produto_id = produtoId.trim();
+    const produtoId = findProdutoIdByNome(produtoNome);
+    if (produtoId) q.produto_id = produtoId;
     return q;
-  }, [status, modo, produtoId]);
+  }, [status, modo, produtoNome, produtos]);
 
   useEffect(() => {
     let alive = true;
@@ -66,31 +89,42 @@ export default function ProcessosList() {
           <div>
             <label className="label" htmlFor="f-status">Status</label>
             <select id="f-status" className="input" value={status} onChange={(e) => setStatus(e.target.value)}>
-              <option value="">todos</option>
-              <option value="ABERTO">ABERTO</option>
-              <option value="FECHADA">FECHADA</option>
-              <option value="CONCLUIDO">CONCLUIDO</option>
-              <option value="CANCELADO">CANCELADO</option>
+              <option value="">Todos</option>
+              <option value="ABERTO">Aberto</option>
+              <option value="FECHADA">Fechado</option>
+              <option value="CONCLUIDO">Concluído</option>
+              <option value="CANCELADO">Cancelado</option>
             </select>
           </div>
           <div>
             <label className="label" htmlFor="f-modo">Modo</label>
             <select id="f-modo" className="input" value={modo} onChange={(e) => setModo(e.target.value)}>
-              <option value="">todos</option>
-              <option value="direto">direto</option>
-              <option value="leilao_direto">leilao_direto</option>
-              <option value="leilao_reverso">leilao_reverso</option>
+              <option value="">Todos</option>
+              <option value="direto">Venda direta</option>
+              <option value="leilao_direto">Leilão direto</option>
+              <option value="leilao_reverso">Leilão reverso</option>
             </select>
           </div>
           <div>
-            <label className="label" htmlFor="f-produto">Produto ID</label>
+            <label className="label" htmlFor="f-produto">Produto</label>
             <input
               id="f-produto"
-              className="input font-mono text-xs"
-              placeholder="UUID (opcional)"
-              value={produtoId}
-              onChange={(e) => setProdutoId(e.target.value)}
+              className="input"
+              placeholder="Nome do produto"
+              value={produtoNome}
+              onChange={(e) => setProdutoNome(e.target.value)}
+              list="produtos-list-neg"
+              autoComplete="off"
             />
+            <datalist id="produtos-list-neg">
+              {produtos.map((p) => (
+                <option
+                  key={p.produto_id}
+                  value={p.nome || ''}
+                  label={p.codigo ? `código ${p.codigo}` : undefined}
+                />
+              ))}
+            </datalist>
           </div>
         </div>
       </div>
@@ -102,12 +136,12 @@ export default function ProcessosList() {
         </div>
         {error === 'jwt' && (
           <p className="text-sm text-amber-600 dark:text-amber-400">
-            Sem JWT. Abra com <code>?jwt=…</code> ou rode <code>python scripts/gen_jwt.py</code>.
+            Sessão expirada. Acesse novamente pelo portal para continuar.
           </p>
         )}
         {error === 'fetch' && (
           <p className="text-sm text-rose-600 dark:text-rose-400">
-            Erro ao consultar negociacao-service em {import.meta.env.VITE_API_BASE || 'http://localhost:5006'}.
+            Não foi possível carregar os processos no momento. Tente novamente em alguns segundos.
           </p>
         )}
         {!error && loading && (
@@ -139,7 +173,13 @@ export default function ProcessosList() {
                     className="cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800/50"
                   >
                     <td className="px-5 py-2"><Badge map={MODO_COLORS} value={p.modo} /></td>
-                    <td className="px-5 py-2 font-mono text-xs" title={p.produto_id}>{truncate(p.produto_id)}</td>
+                    <td className="px-5 py-2" title={p.produto_id}>
+                      {p.produto_nome ? (
+                        <span>{p.produto_nome}</span>
+                      ) : (
+                        <span className="font-mono text-xs">{truncate(p.produto_id)}</span>
+                      )}
+                    </td>
                     <td className="px-5 py-2"><Badge map={STATUS_COLORS} value={p.status} /></td>
                     <td className="px-5 py-2">{fmtDate(p.data_inicio)}</td>
                     <td className="px-5 py-2">{fmtDate(p.data_fim)}</td>

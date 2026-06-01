@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import get_settings
 from app.consumers import NegociacaoConsumers
 from app.metadata_cache import ProcessoMetaCache
+from app.produto_cache import ProdutoCache
 from app.routes import router as negociacao_router
 from app.scheduler import AuctionScheduler
 from b2b_shared.auth.jwt import JWTValidator
@@ -39,10 +40,12 @@ async def lifespan(app: FastAPI):
     await producer.start()
 
     metadata = ProcessoMetaCache()
+    produto_cache = ProdutoCache()
     consumers = NegociacaoConsumers(
         session_factory=session_factory,
         producer=producer,
         metadata=metadata,
+        produto_cache=produto_cache,
         source_name=settings.service_name,
     )
 
@@ -53,6 +56,7 @@ async def lifespan(app: FastAPI):
         handlers={
             Topic.MODO_NEGOCIACAO_DEFINIDO.value: consumers.handle_modo_negociacao_definido,
             Topic.LEILAO_INICIADO.value: consumers.handle_leilao_iniciado,
+            Topic.PRODUTO_CADASTRADO.value: consumers.handle_produto_cadastrado,
         },
     )
     await consumer_runner.start()
@@ -71,6 +75,7 @@ async def lifespan(app: FastAPI):
     app.state.session_factory = session_factory
     app.state.producer = producer
     app.state.metadata_cache = metadata
+    app.state.produto_cache = produto_cache
     app.state.service_name = settings.service_name
     app.state.jwt_validator = JWTValidator(
         secret=settings.jwt_secret,

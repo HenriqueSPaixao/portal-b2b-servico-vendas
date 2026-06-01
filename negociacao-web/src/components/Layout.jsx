@@ -38,11 +38,11 @@ export default function Layout({ children }) {
           <div className="flex items-center gap-2">
             {hasJwt ? (
               <span className="chip-ok">
-                <span className="h-1.5 w-1.5 rounded-full bg-brand-green" /> JWT ok
+                <span className="h-1.5 w-1.5 rounded-full bg-brand-green" /> Sessão ativa
               </span>
             ) : (
               <span className="chip-warn">
-                <span className="h-1.5 w-1.5 rounded-full bg-amber-500" /> sem JWT
+                <span className="h-1.5 w-1.5 rounded-full bg-amber-500" /> Sessão expirada
               </span>
             )}
             <button
