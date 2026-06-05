@@ -20,3 +20,19 @@ export function getJwt() {
 export function clearJwt() {
   sessionStorage.removeItem(KEY);
 }
+
+/**
+ * Lê o claim `empresa_id` do JWT (decodificação client-side, sem validar
+ * assinatura — só para alinhar os balões do chat de lances: os seus à direita,
+ * os do outro lado à esquerda). A validação real acontece no backend.
+ */
+export function currentEmpresaId() {
+  const token = getJwt();
+  if (!token) return null;
+  try {
+    const part = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    return JSON.parse(atob(part)).empresa_id || null;
+  } catch {
+    return null;
+  }
+}

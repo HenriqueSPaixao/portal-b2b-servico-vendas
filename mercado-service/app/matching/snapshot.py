@@ -95,6 +95,23 @@ class Snapshot:
             for d in demandas:
                 d.consumida = True
 
+    def marcar_disponiveis(
+        self, ofertas: list[Oferta], demandas: list[Demanda]
+    ) -> None:
+        """Devolve ofertas/demandas ao pool (inverso de `marcar_consumidas`).
+
+        Usado quando o fornecedor recusa um leilão direto: as demandas voltam a
+        ficar disponíveis para casar com outro fornecedor. Só reativa o que ainda
+        tem quantidade > 0 (uma oferta zerada por estoque continua consumida).
+        """
+        with self._lock:
+            for o in ofertas:
+                if o.quantidade > 0:
+                    o.consumida = False
+            for d in demandas:
+                if d.quantidade > 0:
+                    d.consumida = False
+
     def to_dict(self, produto_id: UUID) -> dict:
         """Representação serializável para o endpoint de debug."""
         return {

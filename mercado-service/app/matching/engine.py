@@ -29,8 +29,28 @@ class ProcessoDisparado:
 
 
 @dataclass
+class PropostaPendente:
+    """Match de leilão direto aguardando o 'sim/não' do fornecedor (gate).
+
+    Enquanto pendente, a oferta/demanda já estão reservadas no snapshot
+    (marcadas como consumidas) para não serem matcheadas de novo. Nada é
+    publicado no Kafka até o fornecedor confirmar.
+    """
+
+    processo: ProcessoDisparado
+    ofertas: list[Oferta]
+    demandas: list[Demanda]
+    empresa_fornecedor_id: UUID
+    criada_em: datetime
+
+
+@dataclass
 class EngineState:
     processos: dict[UUID, ProcessoDisparado] = field(default_factory=dict)
+    # Propostas de leilão direto aguardando confirmação do fornecedor.
+    propostas_pendentes: dict[UUID, PropostaPendente] = field(default_factory=dict)
+    # Log append-only (in-memory) das decisões sim/não do fornecedor.
+    decisoes: list[dict] = field(default_factory=list)
 
 
 class MatchingEngine:
@@ -65,6 +85,7 @@ class MatchingEngine:
 
     async def evaluate(self, produto_id: UUID) -> ProcessoDisparado | None:
         # Lock pra evitar dois consumers disparando processo simultâneo do mesmo produto.
+        a_publicar: tuple[ProcessoDisparado, list[Oferta], list[Demanda]] | None = None
         with self._lock:
             ofertas = self._snapshot.ofertas_ativas(produto_id)
             demandas = self._snapshot.demandas_ativas(produto_id)
@@ -88,11 +109,147 @@ class MatchingEngine:
                 ofertas=envolvidas_ofertas,
                 demandas=envolvidas_demandas,
             )
-            self._state.processos[processo.processo_id] = processo
+            # Reserva oferta/demanda em todos os modos (evita re-match enquanto pendente).
             self._snapshot.marcar_consumidas(envolvidas_ofertas, envolvidas_demandas)
 
-        await self._publicar_processo(processo, envolvidas_ofertas, envolvidas_demandas)
-        return processo
+            if modo == MODO_LEILAO_DIRETO:
+                # GATE: "o fornecedor manda no mercado". No leilão direto há UM
+                # fornecedor dono da oferta; ele precisa confirmar antes de abrir.
+                # Nada é publicado aqui — só vira proposta pendente.
+                proposta = PropostaPendente(
+                    processo=processo,
+                    ofertas=envolvidas_ofertas,
+                    demandas=envolvidas_demandas,
+                    empresa_fornecedor_id=envolvidas_ofertas[0].empresa_fornecedor_id,
+                    criada_em=datetime.now(timezone.utc),
+                )
+                self._state.propostas_pendentes[processo.processo_id] = proposta
+                logger.info(
+                    "Proposta de leilão direto aguardando confirmação do fornecedor",
+                    extra={
+                        "processo_id": str(processo.processo_id),
+                        "produto_id": str(produto_id),
+                        "empresa_fornecedor_id": str(proposta.empresa_fornecedor_id),
+                    },
+                )
+                return processo
+
+            # direto / leilao_reverso: dispara imediatamente (sem gate).
+            self._state.processos[processo.processo_id] = processo
+            a_publicar = (processo, envolvidas_ofertas, envolvidas_demandas)
+
+        proc, ofs, dems = a_publicar
+        await self._publicar_processo(proc, ofs, dems)
+        return proc
+
+    async def confirmar_proposta(
+        self,
+        processo_id: UUID,
+        *,
+        decisao: str,
+        fornecedor_id: UUID | None = None,
+    ) -> dict:
+        """Aplica o 'sim/não' do fornecedor a uma proposta de leilão direto.
+
+        - 'sim'  → publica modo_negociacao_definido + leilao_iniciado (fluxo normal).
+        - 'não'  → fecha dentro do mercado: devolve as demandas ao pool, mantém a
+                    oferta recusada fora (re-match não a reoferece → sem loop) e
+                    tenta casar as demandas com outro fornecedor. Nada é publicado.
+
+        Tudo aqui é interno ao mercado-service: o 'não' não gera evento nem
+        dependência para nenhuma outra equipe.
+        """
+        a_publicar: tuple[ProcessoDisparado, list[Oferta], list[Demanda]] | None = None
+        reavaliar_produto: UUID | None = None
+        with self._lock:
+            proposta = self._state.propostas_pendentes.get(processo_id)
+            if proposta is None:
+                return {"status": "nao_encontrada"}
+            if (
+                fornecedor_id is not None
+                and proposta.empresa_fornecedor_id != fornecedor_id
+            ):
+                return {
+                    "status": "fornecedor_invalido",
+                    "empresa_fornecedor_id": str(proposta.empresa_fornecedor_id),
+                }
+
+            del self._state.propostas_pendentes[processo_id]
+            aceitou = decisao.strip().lower() in ("sim", "s", "aceitar", "aceito", "true")
+            self._registrar_decisao(proposta, aceitou)
+
+            if aceitou:
+                self._state.processos[proposta.processo.processo_id] = proposta.processo
+                a_publicar = (proposta.processo, proposta.ofertas, proposta.demandas)
+            else:
+                # Devolve as demandas ao pool; a oferta recusada permanece consumida
+                # (retirada do mercado) → o re-match não a reoferece ao mesmo fornecedor.
+                self._snapshot.marcar_disponiveis(ofertas=[], demandas=proposta.demandas)
+                reavaliar_produto = proposta.processo.produto_id
+
+        if a_publicar is not None:
+            proc, ofs, dems = a_publicar
+            await self._publicar_processo(proc, ofs, dems)
+            return {
+                "status": "publicado",
+                "processo_id": str(proc.processo_id),
+                "modo": proc.modo,
+            }
+
+        # Recusa: tenta re-matchear as demandas devolvidas com outro fornecedor.
+        if reavaliar_produto is not None:
+            await self.evaluate(reavaliar_produto)
+        return {"status": "recusado", "processo_id": str(processo_id)}
+
+    def _registrar_decisao(self, proposta: PropostaPendente, aceitou: bool) -> None:
+        entry = {
+            "processo_id": str(proposta.processo.processo_id),
+            "produto_id": str(proposta.processo.produto_id),
+            "empresa_fornecedor_id": str(proposta.empresa_fornecedor_id),
+            "modo": proposta.processo.modo,
+            "decisao": "sim" if aceitou else "nao",
+            "data": datetime.now(timezone.utc).isoformat(),
+        }
+        self._state.decisoes.append(entry)
+        # Log só em memória — cap para não crescer sem limite na demo.
+        if len(self._state.decisoes) > 500:
+            del self._state.decisoes[0]
+        logger.info("Decisão do fornecedor registrada", extra=entry)
+
+    def propostas_pendentes(
+        self, *, fornecedor_id: UUID | None = None
+    ) -> list[dict]:
+        with self._lock:
+            itens = list(self._state.propostas_pendentes.values())
+        return [
+            self._serialize_proposta(p)
+            for p in itens
+            if fornecedor_id is None or p.empresa_fornecedor_id == fornecedor_id
+        ]
+
+    def decisoes_log(self) -> list[dict]:
+        with self._lock:
+            # Mais recentes primeiro.
+            return list(reversed(self._state.decisoes))
+
+    def _serialize_proposta(self, p: PropostaPendente) -> dict:
+        proc = p.processo
+        return {
+            "processo_id": str(proc.processo_id),
+            "produto_id": str(proc.produto_id),
+            "modo": proc.modo,
+            "empresa_fornecedor_id": str(p.empresa_fornecedor_id),
+            "quantidade": str(proc.quantidade),
+            "valor_reserva": (
+                str(proc.valor_reserva) if proc.valor_reserva is not None else None
+            ),
+            "data_inicio": proc.data_inicio.isoformat(),
+            "data_fim": proc.data_fim.isoformat(),
+            "empresas_compradoras": [
+                str(d.empresa_comprador_id) for d in p.demandas
+            ],
+            "criada_em": p.criada_em.isoformat(),
+        }
 
     def _decidir_modo(
         self, total_oferta: Decimal, total_demanda: Decimal

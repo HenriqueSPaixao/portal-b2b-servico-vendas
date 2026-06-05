@@ -33,4 +33,10 @@ export const MercadoApi = {
   snapshot: (produtoId) =>
     api.get(`/snapshot/${produtoId}`).then((r) => r.data),
   listarProdutos: () => api.get('/produtos').then((r) => r.data),
+  // Gate do fornecedor (leilão direto). Sem fornecedor_id, o backend filtra
+  // pelo empresa_id do JWT — o fornecedor logado vê só os leilões que pode abrir.
+  listarPropostas: () => api.get('/propostas').then((r) => r.data),
+  confirmarProposta: (processoId, decisao) =>
+    api.post(`/propostas/${processoId}/confirmar`, { decisao }).then((r) => r.data),
+  logDecisoes: () => api.get('/propostas/log').then((r) => r.data),
 };

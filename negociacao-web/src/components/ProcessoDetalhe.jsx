@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { NegociacaoApi } from '../api/client.js';
 import { getJwt } from '../lib/jwt-handshake.js';
 import { MODO_COLORS, STATUS_COLORS, fmtDate } from '../lib/format.js';
-import LancesTable from './LancesTable.jsx';
+import LancesChat from './LancesChat.jsx';
 import LanceForm from './LanceForm.jsx';
 
 function Badge({ map, value }) {
@@ -134,12 +134,12 @@ export default function ProcessoDetalhe() {
 
           <div className="card">
             <div className="flex items-center justify-between mb-3">
-              <h2 className="font-semibold">Lances</h2>
+              <h2 className="font-semibold">Negociação — fornecedor e comprador</h2>
               <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                {processo.lances?.length || 0} no total
+                {processo.lances?.length || 0} lance(s) · atualiza a cada 5s
               </span>
             </div>
-            <LancesTable lances={processo.lances || []} />
+            <LancesChat lances={processo.lances || []} />
           </div>
 
           {processo.status === 'ABERTO' && (

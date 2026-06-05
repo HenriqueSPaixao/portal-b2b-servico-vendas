@@ -2,10 +2,12 @@
 
 Monorepo dos microsserviços do domínio **Vendas** do Portal B2B Distribuído:
 
-- **mercado-service** (porta `5005`) — Matching Engine: decide o modo de negociação (direto, leilão direto, leilão reverso) a partir do cruzamento entre oferta e demanda recebidos via Kafka.
-- **negociacao-service** (porta `5006`) — Auction/Sale Executor: gerencia o ciclo de vida de `processo_negociacao` e `lance`, encerra a negociação e publica `negociacao_fechada` com payload completo.
+- **mercado-service** (porta `5005`) — Matching Engine **voltado ao fornecedor**: cruza oferta e demanda recebidos via Kafka e decide o modo (direto, leilão direto, leilão reverso). No **leilão direto** o fornecedor é dono da oferta e **confirma na UI se quer abrir o leilão (sim/não)** antes de qualquer evento sair — "o fornecedor manda no mercado". Direto e leilão reverso seguem automáticos. Ver [`docs/ARQUITETURA-confirmacao-fornecedor.md`](docs/ARQUITETURA-confirmacao-fornecedor.md).
+- **negociacao-service** (porta `5006`) — Auction/Sale Executor: gerencia o ciclo de vida de `processo_negociacao` e `lance` (interface de lances estilo "chat" fornecedor↔comprador na `negociacao-web`), encerra a negociação e publica `negociacao_fechada` com payload completo.
 
 > **Importante:** o domínio Vendas **NÃO cria pedido**. O encerramento publica `negociacao_fechada` self-contained; quem cria `pedido` é o `demanda-service` (Eq. 4).
+>
+> **Confirmação do fornecedor:** o *matching* propõe automaticamente, mas **abrir um leilão direto** depende do "sim" do fornecedor na mercado-web. Um "não" é resolvido **100% dentro do mercado-service** (re-match interno, nada é publicado) — não gera dependência nem muda payload para nenhuma equipe.
 
 ## Estrutura
 
@@ -223,8 +225,11 @@ Eq.3 Fornecimentos      mercado-service        negociacao-service       Eq.4 Dem
          │                    │                        │   demanda_criada      │
          │                    │◄───────────────────────┼───────────────────────┤
          │                    │                        │                       │
-         │            (matching dispara)               │                       │
-         │                    │ modo_negociacao_definido                       │
+         │            (matching propõe o match)        │                       │
+         │   ┌── leilão direto: fornecedor confirma na mercado-web (sim/não)    │
+         │   │     • "não" → re-match interno; NADA é publicado (fica no mercado)│
+         │   └──── "sim" / direto / reverso → segue abaixo ──┐                  │
+         │                    │ modo_negociacao_definido     │                  │
          │                    ├───────────────────────►│                       │
          │                    │ leilao_iniciado (se leilão)                    │
          │                    ├───────────────────────►│                       │
@@ -322,6 +327,9 @@ Rotas **internas** dos services (o gateway externo encaminha `/api/mercado/*` e 
 | ambos | `GET` | `/health` | público — probe de infra |
 | mercado-service | `GET` | `/snapshot/{produto_id}` | debug do snapshot in-memory (oferta vs demanda) |
 | mercado-service | `GET` | `/processos` | debug dos processos disparados pelo matching |
+| mercado-service | `GET` | `/propostas?fornecedor_id=` | leilões diretos aguardando o "sim/não" do fornecedor (gate). Sem `fornecedor_id`, filtra pelo `empresa_id` do JWT |
+| mercado-service | `POST` | `/propostas/{processo_id}/confirmar` | fornecedor abre (`{"decisao":"sim"}`) ou recusa (`"nao"`) o leilão direto. "nao" fecha interno, nada é publicado |
+| mercado-service | `GET` | `/propostas/log` | log in-memory das decisões sim/não do fornecedor |
 | negociacao-service | `GET` | `/processos?status=&modo=&produto_id=` | listar processos |
 | negociacao-service | `GET` | `/processos/{id}` | detalhe + lista de lances |
 | negociacao-service | `POST` | `/processos/{id}/lances` | registrar lance (`empresa_id` vem do JWT) |

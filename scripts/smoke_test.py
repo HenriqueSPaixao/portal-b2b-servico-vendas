@@ -164,6 +164,7 @@ async def seed_base_data(conn: asyncpg.Connection, run_tag: str) -> dict[str, uu
     produto_a = await ensure_produto(f"SMOKE-A-{run_tag}")
     produto_b = await ensure_produto(f"SMOKE-B-{run_tag}")
     produto_c = await ensure_produto(f"SMOKE-C-{run_tag}")
+    produto_d = await ensure_produto(f"SMOKE-D-{run_tag}")
     fornecedor_a = await ensure_empresa("00000000000001", "fornA@smoke.local", "Fornecedor A")
     fornecedor_b = await ensure_empresa("00000000000002", "fornB@smoke.local", "Fornecedor B")
     comprador_a = await ensure_empresa("00000000000003", "compA@smoke.local", "Comprador A")
@@ -173,6 +174,7 @@ async def seed_base_data(conn: asyncpg.Connection, run_tag: str) -> dict[str, uu
         "produto_a": produto_a,
         "produto_b": produto_b,
         "produto_c": produto_c,
+        "produto_d": produto_d,
         "fornecedor_a": fornecedor_a,
         "fornecedor_b": fornecedor_b,
         "comprador_a": comprador_a,
@@ -198,6 +200,7 @@ async def publish_produtos_cadastrados(
         "produto_a": f"Produto Smoke A {run_tag}",
         "produto_b": f"Produto Smoke B {run_tag}",
         "produto_c": f"Produto Smoke C {run_tag}",
+        "produto_d": f"Produto Smoke D {run_tag}",
     }
     for key, produto_id in ids.items():
         if not key.startswith("produto_"):
@@ -317,6 +320,64 @@ async def wait_for_status(
     return last
 
 
+def fetch_propostas_mercado(fornecedor_id: uuid.UUID) -> list[dict]:
+    """GET /propostas do mercado-service filtrando pelo fornecedor (gate do leilão direto)."""
+    token = _make_jwt(fornecedor_id)
+    req = urllib.request.Request(
+        f"{MERCADO_URL}/propostas?fornecedor_id={fornecedor_id}",
+        headers={"Authorization": f"Bearer {token}"},
+        method="GET",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            return json.loads(resp.read().decode())
+    except urllib.error.HTTPError as exc:
+        return [{"_http_error": exc.code, "_body": exc.read().decode()}]
+
+
+def confirmar_proposta_mercado(
+    processo_id: str, decisao: str, fornecedor_id: uuid.UUID
+) -> dict:
+    """POST /propostas/{id}/confirmar — fornecedor abre ('sim') ou recusa ('nao')."""
+    url = f"{MERCADO_URL}/propostas/{processo_id}/confirmar"
+    body = json.dumps({"decisao": decisao}).encode()
+    req = urllib.request.Request(
+        url,
+        data=body,
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {_make_jwt(fornecedor_id)}",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            return {"status": resp.status, "body": json.loads(resp.read().decode())}
+    except urllib.error.HTTPError as exc:
+        return {"status": exc.code, "body": exc.read().decode()}
+
+
+async def wait_for_proposta_mercado(
+    fornecedor_id: uuid.UUID,
+    produto_id: uuid.UUID,
+    *,
+    timeout: float = 10.0,
+) -> dict | None:
+    """Aguarda surgir uma proposta pendente de leilão direto para o produto/fornecedor."""
+    alvo = str(produto_id)
+    deadline = asyncio.get_event_loop().time() + timeout
+    while asyncio.get_event_loop().time() < deadline:
+        propostas = fetch_propostas_mercado(fornecedor_id)
+        if propostas and isinstance(propostas[0], dict) and "_http_error" in propostas[0]:
+            await asyncio.sleep(0.5)
+            continue
+        for p in propostas:
+            if p.get("produto_id") == alvo:
+                return p
+        await asyncio.sleep(0.5)
+    return None
+
+
 def post_lance(processo_id: uuid.UUID, valor: Decimal, qtd: Decimal, empresa_id: uuid.UUID) -> dict:
     url = f"{NEGOCIACAO_URL}/processos/{processo_id}/lances"
     body = json.dumps({"valor_unitario": str(valor), "quantidade": str(qtd)}).encode()
@@ -431,9 +492,27 @@ async def cenario_leilao_direto(
         },
     ))
 
+    # GATE: no leilão direto o fornecedor é dono da oferta e precisa confirmar.
+    # O mercado NÃO publica modo_negociacao_definido até o "sim" — então primeiro
+    # esperamos a proposta pendente, confirmamos, e só então o processo é criado.
+    proposta = await wait_for_proposta_mercado(ids["fornecedor_a"], produto_id, timeout=12)
+    if proposta is None:
+        return {"ok": False, "erro": "proposta pendente não criada (gate do fornecedor)"}
+    print(
+        f"  proposta pendente: processo_id={proposta['processo_id']} "
+        f"modo={proposta['modo']} fornecedor={proposta['empresa_fornecedor_id']}",
+        flush=True,
+    )
+    if proposta["modo"] != "leilao_direto":
+        return {"ok": False, "erro": f"modo esperado=leilao_direto, obtido={proposta['modo']}"}
+    conf = confirmar_proposta_mercado(proposta["processo_id"], "sim", ids["fornecedor_a"])
+    print(f"  fornecedor confirma (sim) → {conf['status']} {conf['body']}", flush=True)
+    if conf["status"] != 200:
+        return {"ok": False, "erro": f"confirmação do gate falhou: {conf}"}
+
     processo = await wait_for_processo(conn, produto_id, timeout=10)
     if processo is None:
-        return {"ok": False, "erro": "processo não criado"}
+        return {"ok": False, "erro": "processo não criado após confirmação do gate"}
     print(f"  processo criado: id={processo['id']} modo={processo['modo']} data_fim={processo['data_fim']}", flush=True)
     if processo["modo"] != "leilao_direto":
         return {"ok": False, "erro": f"modo esperado=leilao_direto, obtido={processo['modo']}"}
@@ -522,6 +601,92 @@ async def cenario_leilao_reverso(
     }
 
 
+def fetch_log_decisoes(fornecedor_id: uuid.UUID) -> list[dict]:
+    token = _make_jwt(fornecedor_id)
+    req = urllib.request.Request(
+        f"{MERCADO_URL}/propostas/log",
+        headers={"Authorization": f"Bearer {token}"},
+        method="GET",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            return json.loads(resp.read().decode())
+    except urllib.error.HTTPError:
+        return []
+
+
+async def cenario_recusa_leilao_direto(
+    conn: asyncpg.Connection,
+    producer: AIOKafkaProducer,
+    ids: dict[str, uuid.UUID],
+) -> dict:
+    print("\n=== Cenário E: Leilão direto RECUSADO (fornecedor diz 'não') ===", flush=True)
+    produto_id = ids["produto_d"]
+
+    # demanda > oferta → leilao_direto (mesmo padrão do cenário B).
+    await publish(producer, "demanda_criada", _envelope(
+        "demanda_criada",
+        {
+            "id_demanda": str(uuid.uuid4()),
+            "id_produto": str(produto_id),
+            "id_empresa_comprador": str(ids["comprador_a"]),
+            "quantidade_desejada": "80",
+            "preco_maximo": "15.00",
+        },
+    ))
+    await publish(producer, "demanda_criada", _envelope(
+        "demanda_criada",
+        {
+            "id_demanda": str(uuid.uuid4()),
+            "id_produto": str(produto_id),
+            "id_empresa_comprador": str(ids["comprador_b"]),
+            "quantidade_desejada": "80",
+            "preco_maximo": "15.00",
+        },
+    ))
+    await asyncio.sleep(1.0)
+    await publish(producer, "fornecimento_criado", _envelope(
+        "fornecimento_criado",
+        {
+            "id": str(uuid.uuid4()),
+            "produto_id": str(produto_id),
+            "empresa_fornecedor_id": str(ids["fornecedor_a"]),
+            "quantidade_disponivel": "50",
+            "preco_unitario": "10.00",
+        },
+    ))
+
+    proposta = await wait_for_proposta_mercado(ids["fornecedor_a"], produto_id, timeout=12)
+    if proposta is None:
+        return {"ok": False, "erro": "proposta pendente não criada (gate do fornecedor)"}
+    print(f"  proposta pendente: processo_id={proposta['processo_id']}", flush=True)
+
+    conf = confirmar_proposta_mercado(proposta["processo_id"], "nao", ids["fornecedor_a"])
+    print(f"  fornecedor recusa (nao) → {conf['status']} {conf['body']}", flush=True)
+    if conf["status"] != 200:
+        return {"ok": False, "erro": f"recusa do gate falhou: {conf}"}
+
+    # Boundary: NADA deve ser publicado → nenhum processo criado em negociacao.
+    processo = await wait_for_processo(conn, produto_id, timeout=6)
+    if processo is not None:
+        return {
+            "ok": False,
+            "erro": f"recusa não deveria criar processo, mas criou id={processo['id']}",
+        }
+    print("  OK: nenhum processo criado (recusa ficou interna ao mercado)", flush=True)
+
+    # E a decisão 'nao' deve constar no log in-memory.
+    log = fetch_log_decisoes(ids["fornecedor_a"])
+    achou = any(
+        e.get("processo_id") == proposta["processo_id"] and e.get("decisao") == "nao"
+        for e in log
+    )
+    if not achou:
+        return {"ok": False, "erro": "decisão 'nao' não apareceu no log /propostas/log"}
+    print("  OK: decisão 'nao' registrada no log", flush=True)
+    return {"ok": True, "processo_id": proposta["processo_id"], "decisao": "nao"}
+
+
 # --------------------------------------------------------------------------- #
 # Main
 # --------------------------------------------------------------------------- #
@@ -555,6 +720,7 @@ async def main() -> int:
                 "B_leilao_direto": await cenario_leilao_direto(conn, producer, ids),
                 "C_leilao_reverso": await cenario_leilao_reverso(conn, producer, ids),
                 "D_produto_nome": validar_produto_nome_enriquecido(ids),
+                "E_recusa_leilao_direto": await cenario_recusa_leilao_direto(conn, producer, ids),
             }
     finally:
         await producer.stop()
