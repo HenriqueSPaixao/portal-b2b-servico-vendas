@@ -320,6 +320,23 @@ async def wait_for_status(
     return last
 
 
+def fechar_processo_rest(processo_id, empresa_id: uuid.UUID) -> dict:
+    """Fecha o processo via REST (POST /fechar). Mantém o smoke independente da
+    duração do leilão — que pode estar longa (.env.local) para a apresentação."""
+    url = f"{NEGOCIACAO_URL}/processos/{processo_id}/fechar"
+    req = urllib.request.Request(
+        url,
+        data=b"",
+        headers={"Authorization": f"Bearer {_make_jwt(empresa_id)}"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            return {"status": resp.status, "body": json.loads(resp.read().decode())}
+    except urllib.error.HTTPError as exc:
+        return {"status": exc.code, "body": exc.read().decode()}
+
+
 def fetch_propostas_mercado(fornecedor_id: uuid.UUID) -> list[dict]:
     """GET /propostas do mercado-service filtrando pelo fornecedor (gate do leilão direto)."""
     token = _make_jwt(fornecedor_id)
@@ -524,8 +541,11 @@ async def cenario_leilao_direto(
     if r1["status"] != 201 or r2["status"] != 201:
         return {"ok": False, "erro": f"lances rejeitados: A={r1}, B={r2}"}
 
-    # auction_duration_seconds=10 + scheduler poll 2s → ~12s
-    final_status = await wait_for_status(conn, processo["id"], "FECHADA", timeout=25)
+    # Fecha explicitamente (não esperar o scheduler): o leilão pode estar com
+    # duração longa para a apresentação, mas o smoke continua rápido.
+    fr = fechar_processo_rest(processo["id"], ids["comprador_a"])
+    print(f"  fechar manual → {fr['status']}", flush=True)
+    final_status = await wait_for_status(conn, processo["id"], "FECHADA", timeout=15)
     print(f"  status final: {final_status}", flush=True)
     return {
         "ok": final_status == "FECHADA",
@@ -591,7 +611,10 @@ async def cenario_leilao_reverso(
     if r1["status"] != 201 or r2["status"] != 201:
         return {"ok": False, "erro": f"lances rejeitados: A={r1}, B={r2}"}
 
-    final_status = await wait_for_status(conn, processo["id"], "FECHADA", timeout=25)
+    # Fecha explicitamente (independe da duração do leilão — ver cenário B).
+    fr = fechar_processo_rest(processo["id"], ids["comprador_a"])
+    print(f"  fechar manual → {fr['status']}", flush=True)
+    final_status = await wait_for_status(conn, processo["id"], "FECHADA", timeout=15)
     print(f"  status final: {final_status}", flush=True)
     return {
         "ok": final_status == "FECHADA",

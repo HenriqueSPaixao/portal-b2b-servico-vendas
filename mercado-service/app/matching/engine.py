@@ -179,6 +179,12 @@ class MatchingEngine:
             self._registrar_decisao(proposta, aceitou)
 
             if aceitou:
+                # O leilão só começa quando o fornecedor ABRE — renova a janela de
+                # tempo (a proposta pode ter ficado pendente por um intervalo). Sem
+                # isso, o data_fim fixado no match poderia nascer já expirado.
+                agora = datetime.now(timezone.utc)
+                proposta.processo.data_inicio = agora
+                proposta.processo.data_fim = agora + self._auction_duration
                 self._state.processos[proposta.processo.processo_id] = proposta.processo
                 a_publicar = (proposta.processo, proposta.ofertas, proposta.demandas)
             else:
@@ -370,8 +376,11 @@ class MatchingEngine:
         elif modo == MODO_LEILAO_DIRETO:
             empresa_fornecedor_principal = ofertas[0].empresa_fornecedor_id
             fornecimento_id = ofertas[0].fornecimento_id
+            # Filtra None: se a demanda veio sem id de comprador (Eq.4 não envia),
+            # NÃO pode virar a string "None" na lista de habilitados — isso quebraria
+            # a checagem de habilitação do leilão (UUID("None") → ValueError).
             empresas_compradoras = [
-                str(d.empresa_comprador_id) for d in demandas
+                str(d.empresa_comprador_id) for d in demandas if d.empresa_comprador_id
             ]
         else:  # LEILAO_REVERSO
             empresa_comprador_principal = demandas[0].empresa_comprador_id

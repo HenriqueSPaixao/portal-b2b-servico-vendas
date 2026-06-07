@@ -111,8 +111,10 @@ class MercadoConsumers:
             demanda = Demanda(
                 demanda_id=UUID(p.get("id_demanda") or p["id"]),
                 produto_id=UUID(p.get("id_produto") or p["produto_id"]),
-                empresa_comprador_id=UUID(
-                    p.get("id_empresa_comprador") or p["empresa_comprador_id"]
+                # Opcional: a Eq.4 não envia o id do comprador e nosso próprio schema
+                # marca como opcional. Não derruba o evento se faltar.
+                empresa_comprador_id=_uuid_or_none(
+                    p.get("id_empresa_comprador") or p.get("empresa_comprador_id")
                 ),
                 quantidade=_decimal(
                     p.get("quantidade_desejada") or p.get("quantidade")

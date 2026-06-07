@@ -318,6 +318,13 @@ Aceitamos múltiplos esquemas de nomenclatura por compatibilidade defensiva:
 }
 ```
 
+> ⚠️ **Timing por modo (importante para quem consome):** em `direto` e `leilao_reverso` o
+> `negociacao_fechada` sai automaticamente. Em **`leilao_direto`** ele só é publicado **depois
+> que o fornecedor confirma "Abrir" na mercado-web** (gate de confirmação do fornecedor — ver
+> [docs/ARQUITETURA-confirmacao-fornecedor.md](docs/ARQUITETURA-confirmacao-fornecedor.md)). Se o
+> fornecedor recusar, o leilão fecha internamente no mercado-service e **nenhum evento é
+> publicado**. O contrato/payload não muda — só o momento da publicação.
+
 ### API REST (todas exigem `Authorization: Bearer <jwt>` exceto `/health`)
 
 Rotas **internas** dos services (o gateway externo encaminha `/api/mercado/*` e `/api/negociacoes/*` removendo o prefixo antes de proxy):

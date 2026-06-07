@@ -18,7 +18,9 @@ class Oferta:
 class Demanda:
     demanda_id: UUID
     produto_id: UUID
-    empresa_comprador_id: UUID
+    # Opcional: nosso contrato (demanda_criada.schema.json) já marca como opcional, e a
+    # Eq.4 não envia o id da empresa compradora. Não pode derrubar o consumo do evento.
+    empresa_comprador_id: UUID | None
     quantidade: Decimal
     preco_maximo: Decimal | None
     is_recorrente: bool = False
@@ -130,7 +132,9 @@ class Snapshot:
             "demandas": [
                 {
                     "demanda_id": str(d.demanda_id),
-                    "empresa_comprador_id": str(d.empresa_comprador_id),
+                    "empresa_comprador_id": (
+                        str(d.empresa_comprador_id) if d.empresa_comprador_id else None
+                    ),
                     "quantidade": str(d.quantidade),
                     "preco_maximo": str(d.preco_maximo) if d.preco_maximo else None,
                     "is_recorrente": d.is_recorrente,
