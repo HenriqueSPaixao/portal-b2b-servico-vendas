@@ -6,10 +6,13 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field
 
 ModoLiteral = Literal["direto", "leilao_direto", "leilao_reverso"]
-# CONCLUIDO incluído porque outras equipes (ex.: demanda-service) marcam processos
-# com esse status no banco compartilhado após gerar pedido. Sem isso, GET /processos
-# quebra com 500 em registros legados.
-StatusLiteral = Literal["ABERTO", "FECHADA", "CANCELADO", "CONCLUIDO"]
+# Status canônicos que ESTE serviço produz/conhece (ABERTO/FECHADA) + os que outras
+# equipes marcam no banco compartilhado (CANCELADO/CONCLUIDO/ENCERRADO). Mantido só
+# como documentação: o campo abaixo é `str`, não este Literal, porque o banco é
+# compartilhado e não controlamos todo status que outras equipes possam gravar — um
+# valor desconhecido NÃO pode derrubar GET /processos inteiro com 500 (já aconteceu
+# com CONCLUIDO e depois com ENCERRADO).
+StatusLiteral = Literal["ABERTO", "FECHADA", "CANCELADO", "CONCLUIDO", "ENCERRADO"]
 
 
 class LanceOut(BaseModel):
@@ -30,7 +33,7 @@ class ProcessoOut(BaseModel):
     produto_id: UUID
     produto_nome: str | None = None
     modo: ModoLiteral
-    status: StatusLiteral
+    status: str
     data_inicio: datetime
     # nullable: DDL permite NULL e há registros antigos sem data_fim no banco compartilhado
     data_fim: datetime | None = None
