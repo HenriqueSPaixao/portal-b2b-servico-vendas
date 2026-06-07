@@ -27,11 +27,20 @@ export function clearJwt() {
  * os do outro lado à esquerda). A validação real acontece no backend.
  */
 export function currentEmpresaId() {
+  return readClaim('empresa_id');
+}
+
+/** Papel da empresa logada, lido do JWT (FORNECEDOR | COMPRADOR | …). */
+export function currentRole() {
+  return readClaim('role');
+}
+
+function readClaim(name) {
   const token = getJwt();
   if (!token) return null;
   try {
     const part = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
-    return JSON.parse(atob(part)).empresa_id || null;
+    return JSON.parse(atob(part))[name] || null;
   } catch {
     return null;
   }

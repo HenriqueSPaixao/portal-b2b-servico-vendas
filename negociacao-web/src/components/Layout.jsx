@@ -1,13 +1,19 @@
 import { useEffect, useState } from 'react';
-import { getJwt } from '../lib/jwt-handshake.js';
+import { getJwt, currentRole } from '../lib/jwt-handshake.js';
 import { getTheme, toggleTheme } from '../lib/theme.js';
+
+const ROLE_LABEL = { FORNECEDOR: 'Fornecedor', COMPRADOR: 'Comprador' };
 
 export default function Layout({ children }) {
   const [theme, setTheme] = useState(getTheme());
   const [hasJwt, setHasJwt] = useState(Boolean(getJwt()));
+  const [role, setRole] = useState(currentRole());
 
   useEffect(() => {
-    const onStorage = () => setHasJwt(Boolean(getJwt()));
+    const onStorage = () => {
+      setHasJwt(Boolean(getJwt()));
+      setRole(currentRole());
+    };
     window.addEventListener('storage', onStorage);
     const interval = setInterval(onStorage, 2000);
     return () => {
@@ -36,6 +42,11 @@ export default function Layout({ children }) {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            {hasJwt && role && (
+              <span className="chip bg-brand-green/10 text-brand-green">
+                Você: {ROLE_LABEL[role] || role}
+              </span>
+            )}
             {hasJwt ? (
               <span className="chip-ok">
                 <span className="h-1.5 w-1.5 rounded-full bg-brand-green" /> Sessão ativa

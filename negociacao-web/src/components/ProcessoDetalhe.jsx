@@ -55,7 +55,7 @@ export default function ProcessoDetalhe() {
   }, [load]);
 
   async function handleFechar() {
-    if (!window.confirm('Encerrar este processo agora? Esta ação não pode ser desfeita.')) {
+    if (!window.confirm('Encerrar agora (ação de operador)? O leilão fecharia sozinho no fim do tempo. Não pode ser desfeito.')) {
       return;
     }
     setClosing(true);
@@ -151,12 +151,20 @@ export default function ProcessoDetalhe() {
 
           {processo.status === 'ABERTO' && (
             <div className="card">
-              <h2 className="font-semibold mb-1">Encerrar processo</h2>
+              <h2 className="font-semibold mb-1">Encerrar (operador)</h2>
               <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-3">
-                Encerra o processo imediatamente com o resultado parcial.
+                O leilão encerra <strong>sozinho</strong> no horário de término ({fmtDate(processo.data_fim)}).
+                Este botão é um atalho de <strong>operador/admin</strong> para encerrar na hora — não é
+                uma ação do comprador.
               </p>
-              <button type="button" className="btn-danger" disabled={closing} onClick={handleFechar}>
-                {closing ? 'Encerrando…' : 'Encerrar processo'}
+              <button
+                type="button"
+                className="btn-danger"
+                disabled={closing}
+                onClick={handleFechar}
+                title="Ação de operador/admin. O encerramento normal é automático, pelo tempo do leilão."
+              >
+                {closing ? 'Encerrando…' : 'Encerrar agora (operador)'}
               </button>
             </div>
           )}
