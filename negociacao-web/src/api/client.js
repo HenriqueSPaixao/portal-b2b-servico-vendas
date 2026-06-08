@@ -28,9 +28,17 @@ api.interceptors.response.use(
   }
 );
 
+// URL do stream SSE (EventSource não envia header Authorization → token na query).
+export function streamLancesUrl(processoId) {
+  const token = getJwt() || '';
+  return `${BASE}/processos/${processoId}/stream?jwt=${encodeURIComponent(token)}`;
+}
+
 export const NegociacaoApi = {
   listarProcessos: (params = {}) =>
     api.get('/processos', { params }).then((r) => r.data),
+  abertosParaMim: () =>
+    api.get('/processos/abertos-para-mim').then((r) => r.data),
   detalhe: (id) =>
     api.get(`/processos/${id}`).then((r) => r.data),
   registrarLance: (id, body) =>

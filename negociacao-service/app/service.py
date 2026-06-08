@@ -36,6 +36,13 @@ class ModoIncompatibilComLance(NegociacaoServiceError):
     pass
 
 
+class LanceInvalido(NegociacaoServiceError):
+    """Lance fere os parâmetros do leilão (preço fora do limite, não supera o
+    melhor atual, ou quantidade acima do disponível)."""
+
+    pass
+
+
 @dataclass
 class FechamentoResultado:
     processo_id: UUID
@@ -121,6 +128,9 @@ class NegociacaoService:
 
         meta = self._metadata.get(processo_id)
         self._validar_elegibilidade(processo.modo, empresa_id, meta)
+        self._validar_lance(
+            processo, valor_unitario=valor_unitario, quantidade=quantidade, meta=meta
+        )
 
         lance = Lance(
             id=uuid4(),
@@ -185,6 +195,57 @@ class NegociacaoService:
             raise EmpresaNaoHabilitada(
                 f"Empresa {empresa_id} não está habilitada a dar lance neste processo"
             )
+
+    def _validar_lance(
+        self,
+        processo: ProcessoNegociacao,
+        *,
+        valor_unitario: Decimal,
+        quantidade: Decimal,
+        meta: ProcessoMeta | None,
+    ) -> None:
+        """Aplica os parâmetros do leilão ao lance.
+
+        - Quantidade não pode exceder o disponível do processo (quando conhecido).
+        - Preço respeita o limite do modo (piso no direto, teto no reverso) via
+          `valor_reserva`, e precisa SUPERAR o melhor lance atual (direto sobe,
+          reverso desce). Assim o leilão tem regra de verdade e evita lance inócuo.
+        """
+        # Leilão de lote fechado: o lance vale pelo lote INTEIRO. Sem isso, um lance
+        # de 1 unidade ancararia o preço unitário para todo o resto — injusto.
+        if meta is not None and meta.quantidade and quantidade != meta.quantidade:
+            raise LanceInvalido(
+                f"O lance é pelo lote inteiro de {meta.quantidade} unidades "
+                f"(a disputa é só no preço por unidade)."
+            )
+
+        reserva = processo.valor_reserva
+        lances = list(processo.lances)
+
+        if processo.modo == ModoNegociacao.LEILAO_DIRETO.value:
+            # Compradores competem subindo o preço.
+            if reserva is not None and valor_unitario < reserva:
+                raise LanceInvalido(
+                    f"Lance abaixo do preço mínimo deste leilão (R$ {reserva})."
+                )
+            if lances:
+                melhor = max(l.valor_unitario for l in lances)
+                if valor_unitario <= melhor:
+                    raise LanceInvalido(
+                        f"Seu lance precisa ser MAIOR que o melhor atual (R$ {melhor})."
+                    )
+        elif processo.modo == ModoNegociacao.LEILAO_REVERSO.value:
+            # Fornecedores competem baixando o preço.
+            if reserva is not None and valor_unitario > reserva:
+                raise LanceInvalido(
+                    f"Lance acima do preço máximo deste leilão (R$ {reserva})."
+                )
+            if lances:
+                melhor = min(l.valor_unitario for l in lances)
+                if valor_unitario >= melhor:
+                    raise LanceInvalido(
+                        f"Seu lance precisa ser MENOR que o melhor atual (R$ {melhor})."
+                    )
 
     # ------------------------------------------------------------------ #
     # Fechamento

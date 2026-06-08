@@ -11,6 +11,17 @@ function fmtDate(s) {
   }
 }
 
+function fmtBRL(value) {
+  const n = Number(value);
+  if (value == null || Number.isNaN(n)) return '—';
+  return n.toLocaleString('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
 function ProdutoLabel({ nome, id }) {
   if (nome) return <span>{nome}</span>;
   return <span className="font-mono text-xs" title={id}>{id?.slice(0, 8)}…</span>;
@@ -117,7 +128,7 @@ export default function PropostasPanel() {
                   </div>
                   <div className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
                     Quantidade {p.quantidade}
-                    {p.valor_reserva != null && <> · preço mínimo R$ {p.valor_reserva}</>}
+                    {p.valor_reserva != null && <> · preço mínimo {fmtBRL(p.valor_reserva)}</>}
                     {' · '}
                     {(p.empresas_compradoras?.length ?? 0)} comprador(es) na disputa
                   </div>

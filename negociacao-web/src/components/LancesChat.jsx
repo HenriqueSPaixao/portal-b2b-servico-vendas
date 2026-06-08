@@ -1,4 +1,4 @@
-import { fmtDate, truncate } from '../lib/format.js';
+import { fmtDate, truncate, fmtBRL, fmtQty } from '../lib/format.js';
 import { currentEmpresaId } from '../lib/jwt-handshake.js';
 
 /**
@@ -46,8 +46,8 @@ export default function LancesChat({ lances }) {
                 {mine ? 'Você' : `Empresa ${truncate(l.empresa_id)}`}
               </div>
               <div className="font-semibold leading-tight">
-                R$ {l.valor_unitario}
-                <span className="font-normal text-sm opacity-80"> × {l.quantidade}</span>
+                {fmtBRL(l.valor_unitario)}
+                <span className="font-normal text-sm opacity-80"> × {fmtQty(l.quantidade)}</span>
               </div>
               <div
                 className={

@@ -38,6 +38,8 @@ class ProcessoOut(BaseModel):
     # nullable: DDL permite NULL e há registros antigos sem data_fim no banco compartilhado
     data_fim: datetime | None = None
     valor_reserva: Decimal | None
+    # Quantidade do lote (vem do metadata cache; o lance é sempre pelo lote inteiro).
+    quantidade: Decimal | None = None
 
 
 class ProcessoDetalhadoOut(ProcessoOut):

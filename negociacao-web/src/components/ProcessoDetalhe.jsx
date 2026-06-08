@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { NegociacaoApi } from '../api/client.js';
-import { getJwt } from '../lib/jwt-handshake.js';
-import { MODO_COLORS, STATUS_COLORS, fmtDate } from '../lib/format.js';
+import { NegociacaoApi, streamLancesUrl } from '../api/client.js';
+import { getJwt, currentRole } from '../lib/jwt-handshake.js';
+import { MODO_COLORS, STATUS_COLORS, fmtDate, fmtBRL, fmtQty } from '../lib/format.js';
 import LancesChat from './LancesChat.jsx';
 import LanceForm from './LanceForm.jsx';
 
@@ -54,6 +54,21 @@ export default function ProcessoDetalhe() {
     return () => clearInterval(t);
   }, [load]);
 
+  // Tempo real via SSE: quando um lance entra, recarrega na hora. O polling de 5s
+  // acima fica como rede de segurança (se o SSE cair ou houver multi-instância).
+  useEffect(() => {
+    if (!getJwt()) return undefined;
+    let es;
+    try {
+      es = new EventSource(streamLancesUrl(id));
+      es.addEventListener('lance', () => load());
+      // onerror: o EventSource já tenta reconectar sozinho; o polling cobre o gap.
+    } catch {
+      // EventSource indisponível neste ambiente — polling cobre.
+    }
+    return () => es?.close();
+  }, [id, load]);
+
   async function handleFechar() {
     if (!window.confirm('Encerrar agora (ação de operador)? O leilão fecharia sozinho no fim do tempo. Não pode ser desfeito.')) {
       return;
@@ -73,6 +88,35 @@ export default function ProcessoDetalhe() {
       setClosing(false);
     }
   }
+
+  // Quem dá lance depende do modo: no leilão direto competem os COMPRADORES;
+  // no reverso, os FORNECEDORES. Mostramos o formulário só pra esse lado; o outro
+  // lado "acompanha". (O backend ainda valida a habilitação — isto é só UX.)
+  const role = currentRole();
+  const bidderRole =
+    processo?.modo === 'leilao_direto'
+      ? 'COMPRADOR'
+      : processo?.modo === 'leilao_reverso'
+        ? 'FORNECEDOR'
+        : null;
+  // Sem papel no token, deixamos o backend decidir (mostra o form).
+  const podeBidar = bidderRole ? !role || role === bidderRole : false;
+  const ladoQueBida = bidderRole === 'COMPRADOR' ? 'compradores' : 'fornecedores';
+
+  // Valor a bater: melhor lance até agora (maior no direto, menor no reverso);
+  // se ninguém deu lance, cai no preço de referência do leilão.
+  const isReverso = processo?.modo === 'leilao_reverso';
+  const lances = processo?.lances || [];
+  const valores = lances
+    .map((l) => Number(l.valor_unitario))
+    .filter((n) => !Number.isNaN(n));
+  const melhorLance = valores.length
+    ? (isReverso ? Math.min(...valores) : Math.max(...valores))
+    : null;
+  const valorReferencia = processo?.valor_reserva != null ? Number(processo.valor_reserva) : null;
+  const valorAlvo = melhorLance != null ? melhorLance : valorReferencia;
+  const papelLabel =
+    role === 'FORNECEDOR' ? 'Fornecedor' : role === 'COMPRADOR' ? 'Comprador' : null;
 
   return (
     <>
@@ -128,7 +172,7 @@ export default function ProcessoDetalhe() {
               </InfoRow>
               <InfoRow label="Início">{fmtDate(processo.data_inicio)}</InfoRow>
               <InfoRow label="Fim">{fmtDate(processo.data_fim)}</InfoRow>
-              <InfoRow label="Valor reserva"><span className="font-mono">{processo.valor_reserva ?? '—'}</span></InfoRow>
+              <InfoRow label="Preço de referência">{fmtBRL(processo.valor_reserva)}</InfoRow>
             </div>
           </div>
 
@@ -136,16 +180,78 @@ export default function ProcessoDetalhe() {
             <div className="flex items-center justify-between mb-3">
               <h2 className="font-semibold">Negociação — fornecedor e comprador</h2>
               <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                {processo.lances?.length || 0} lance(s) · atualiza a cada 5s
+                {processo.lances?.length || 0} lance(s) · ao vivo (tempo real)
               </span>
             </div>
             <LancesChat lances={processo.lances || []} />
           </div>
 
-          {processo.status === 'ABERTO' && (
+          {processo.status === 'ABERTO' && bidderRole && (
             <div className="card">
-              <h2 className="font-semibold mb-3">Registrar lance</h2>
-              <LanceForm processoId={processo.id} onSuccess={load} />
+              <div className="flex items-center justify-between mb-2">
+                <h2 className="font-semibold">Situação do leilão</h2>
+                {papelLabel && (
+                  <span className="chip bg-brand-green/10 text-brand-green">
+                    Você está como {papelLabel}
+                  </span>
+                )}
+              </div>
+              {valorAlvo != null ? (
+                <>
+                  <div className="text-xs text-zinc-500 dark:text-zinc-400">
+                    {melhorLance != null ? 'Melhor lance até agora' : 'Preço de referência'}
+                  </div>
+                  <div className="text-3xl font-bold tracking-tight">{fmtBRL(valorAlvo)}</div>
+                  {podeBidar && (
+                    <p className="text-sm mt-1 text-zinc-600 dark:text-zinc-300">
+                      {melhorLance != null ? (
+                        isReverso ? (
+                          <>Para assumir a liderança, ofereça <strong>menos</strong> que {fmtBRL(valorAlvo)}.</>
+                        ) : (
+                          <>Para assumir a liderança, dê um lance <strong>maior</strong> que {fmtBRL(valorAlvo)}.</>
+                        )
+                      ) : isReverso ? (
+                        <>Ninguém ofereceu ainda — o valor <strong>máximo</strong> aceito é {fmtBRL(valorAlvo)}.</>
+                      ) : (
+                        <>Ninguém deu lance ainda — o lance <strong>mínimo</strong> é {fmtBRL(valorAlvo)}.</>
+                      )}
+                    </p>
+                  )}
+                </>
+              ) : (
+                <p className="text-sm text-zinc-600 dark:text-zinc-300">
+                  Ninguém deu lance ainda. Faça a primeira oferta!
+                </p>
+              )}
+              {processo.quantidade != null && (
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-2">
+                  Lote de <strong>{fmtQty(processo.quantidade)} unidades</strong> — o lance é
+                  pelo lote inteiro; a disputa é só no preço por unidade.
+                </p>
+              )}
+            </div>
+          )}
+
+          {processo.status === 'ABERTO' && bidderRole && (
+            <div className="card">
+              {podeBidar ? (
+                <>
+                  <h2 className="font-semibold mb-3">Dar lance</h2>
+                  <LanceForm
+                    processoId={processo.id}
+                    quantidade={processo.quantidade}
+                    onSuccess={load}
+                  />
+                </>
+              ) : (
+                <>
+                  <h2 className="font-semibold mb-1">Você está acompanhando</h2>
+                  <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                    Neste leilão, quem dá lances são os <strong>{ladoQueBida}</strong>.
+                    Você acompanha a negociação em tempo real aqui.
+                  </p>
+                </>
+              )}
             </div>
           )}
 

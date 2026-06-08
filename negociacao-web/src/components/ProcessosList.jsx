@@ -2,7 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { NegociacaoApi } from '../api/client.js';
 import { getJwt } from '../lib/jwt-handshake.js';
-import { MODO_COLORS, STATUS_COLORS, truncate, fmtDate } from '../lib/format.js';
+import { MODO_COLORS, STATUS_COLORS, truncate, fmtDate, fmtBRL } from '../lib/format.js';
+import MeusLeiloes from './MeusLeiloes.jsx';
 
 function Badge({ map, value }) {
   const cls = map[value] || 'bg-zinc-500/15 text-zinc-600 dark:text-zinc-400';
@@ -83,6 +84,7 @@ export default function ProcessosList() {
 
   return (
     <>
+      <MeusLeiloes />
       <div className="card mb-5">
         <h2 className="font-semibold mb-3">Filtros</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -183,7 +185,7 @@ export default function ProcessosList() {
                     <td className="px-5 py-2"><Badge map={STATUS_COLORS} value={p.status} /></td>
                     <td className="px-5 py-2">{fmtDate(p.data_inicio)}</td>
                     <td className="px-5 py-2">{fmtDate(p.data_fim)}</td>
-                    <td className="px-5 py-2 text-right font-mono">{p.valor_reserva ?? '—'}</td>
+                    <td className="px-5 py-2 text-right font-mono">{fmtBRL(p.valor_reserva)}</td>
                   </tr>
                 ))}
               </tbody>

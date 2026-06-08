@@ -338,8 +338,10 @@ Rotas **internas** dos services (o gateway externo encaminha `/api/mercado/*` e 
 | mercado-service | `POST` | `/propostas/{processo_id}/confirmar` | fornecedor abre (`{"decisao":"sim"}`) ou recusa (`"nao"`) o leilão direto. "nao" fecha interno, nada é publicado |
 | mercado-service | `GET` | `/propostas/log` | log in-memory das decisões sim/não do fornecedor |
 | negociacao-service | `GET` | `/processos?status=&modo=&produto_id=` | listar processos |
+| negociacao-service | `GET` | `/processos/abertos-para-mim` | leilões ABERTOS onde a empresa do JWT está habilitada a dar lance (reverso p/ fornecedores, direto p/ compradores) |
 | negociacao-service | `GET` | `/processos/{id}` | detalhe + lista de lances |
-| negociacao-service | `POST` | `/processos/{id}/lances` | registrar lance (`empresa_id` vem do JWT) |
+| negociacao-service | `GET` | `/processos/{id}/stream` | SSE de lances ao vivo (token via `?jwt=`; envia `X-Accel-Buffering: no`) |
+| negociacao-service | `POST` | `/processos/{id}/lances` | registrar lance — valida piso/teto (`valor_reserva`), supera o melhor atual e qtd ≤ disponível; `empresa_id` do JWT |
 | negociacao-service | `POST` | `/processos/{id}/fechar` | fechamento manual (admin) |
 
 JWT validado localmente — issuer `portal-autenticacao`, audience `portal-b2b`, HS256, mesma `JWT_SECRET` do MS Usuários.

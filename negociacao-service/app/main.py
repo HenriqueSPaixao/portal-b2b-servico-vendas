@@ -10,6 +10,7 @@ from app.metadata_cache import ProcessoMetaCache
 from app.produto_cache import ProdutoCache
 from app.routes import router as negociacao_router
 from app.scheduler import AuctionScheduler
+from app.sse import LanceBroker
 from b2b_shared.auth.jwt import JWTValidator
 from b2b_shared.db import build_engine, build_session_factory
 from b2b_shared.events import Topic
@@ -76,6 +77,7 @@ async def lifespan(app: FastAPI):
     app.state.producer = producer
     app.state.metadata_cache = metadata
     app.state.produto_cache = produto_cache
+    app.state.lance_broker = LanceBroker()
     app.state.service_name = settings.service_name
     app.state.jwt_validator = JWTValidator(
         secret=settings.jwt_secret,

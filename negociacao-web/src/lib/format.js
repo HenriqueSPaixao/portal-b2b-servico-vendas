@@ -24,3 +24,22 @@ export function fmtDate(s) {
     return s;
   }
 }
+
+// Dinheiro em reais com 2 casas: "11.5000" -> "R$ 11,50".
+export function fmtBRL(value) {
+  const n = Number(value);
+  if (value == null || Number.isNaN(n)) return '—';
+  return n.toLocaleString('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
+// Quantidade sem zeros à toa: "50.0000" -> "50"; "12.5000" -> "12,5".
+export function fmtQty(value) {
+  const n = Number(value);
+  if (value == null || Number.isNaN(n)) return value ?? '—';
+  return n.toLocaleString('pt-BR', { maximumFractionDigits: 4 });
+}

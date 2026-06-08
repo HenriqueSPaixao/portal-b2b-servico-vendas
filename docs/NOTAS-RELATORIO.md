@@ -119,3 +119,32 @@ faltava era (1) e a nossa tolerância a campo opcional.
 - **Modelagem:** três modos de negociação derivados de oferta×demanda; processo/lance.
 - **Integração:** contratos versionados (`docs/contracts/`), tooling (`event_tap`,
   `event_publish`, OpenAPI, Postman) e o diagnóstico cross-team documentado aqui.
+
+## 9. Profundidade do domínio de negociação (jun/2026) — tudo interno, sem mexer em outros MS
+Conjunto de melhorias que dão "corpo" à negociação sem alterar contratos com outras equipes:
+
+- **Formulário de lance por papel (UX correta por modo):** na negociacao-web, o formulário
+  de lance aparece só pra quem compete naquele modo — **compradores** no leilão direto,
+  **fornecedores** no leilão reverso. O outro lado vê "Você está acompanhando". O `valor_reserva`
+  e a habilitação reais continuam validados no backend (a UI é só coerência).
+- **Validação do lance contra os parâmetros do leilão** (negociacao-service, `_validar_lance`):
+  - **Preço:** direto → ≥ `valor_reserva` (piso); reverso → ≤ `valor_reserva` (teto).
+  - **Tem que superar o melhor atual:** direto sobe (> maior), reverso desce (< menor).
+  - **Quantidade:** ≤ disponível do processo (`meta.quantidade`).
+  - Lance inválido → HTTP **422** com mensagem amigável (a UI já exibe). Valida o critério de
+    **consistência**. (Testado: piso/teto, supera-melhor e qtd, todos retornando 422/201 certos.)
+- **Lances em tempo real (SSE):** endpoint `GET /processos/{id}/stream` empurra cada lance novo
+  pros navegadores conectados (in-process pub/sub em `app/sse.py`). É um canal **interno**
+  negociacao-web ⇄ negociacao-service — **não usa Kafka nem envolve outras equipes**. O token vai
+  por `?jwt=` (EventSource não manda header) e o header `X-Accel-Buffering: no` desliga o buffer do
+  Nginx **só nesta resposta** (zero demanda pro Sérgio). A negociacao-web mantém um **polling de
+  fallback** (rede de segurança p/ queda de conexão ou multi-instância).
+- **"Leilões abertos para você" (multi-fornecedor):** `GET /processos/abertos-para-mim` lista os
+  leilões ABERTOS onde a empresa do JWT está habilitada (reverso → todos os fornecedores do
+  produto competem; direto → o comprador). É a resposta a "como o leilão chega a cada fornecedor
+  quando vários têm o mesmo produto": no reverso todos aparecem e competem; no direto o gate vai
+  ao fornecedor selecionado e, na recusa, cascateia para o próximo (re-match interno do mercado).
+
+> Ressalva honesta (consistência): `metadata_cache`, propostas pendentes do gate e o fan-out do
+> SSE são **in-memory** (perdem-se em restart; SSE é por instância). Aceitável para o trabalho;
+> em produção, espelhar metadata no BD e fazer o fan-out consumindo `lance_realizado` do Kafka.
