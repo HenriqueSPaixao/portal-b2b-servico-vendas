@@ -114,17 +114,23 @@ em todas as chamadas. Você **não precisa copiar/colar token** — um script mi
 navegador na URL com o `?jwt=`:
 
 ```powershell
-# negociacao-web (papel COMPRADOR) — abre o navegador já logado:
-.\scripts\abrir_local.ps1
+# JÁ LOGADO + COM CENÁRIO PRA TESTAR (recomendado): semeia os dados e loga na empresa certa.
+.\scripts\abrir_local.ps1 -ComDados                 # negociacao-web: leilão ABERTO, logado como comprador habilitado -> dê um lance
+.\scripts\abrir_local.ps1 -Front mercado -ComDados  # mercado-web: proposta pendente, logado como o fornecedor dono -> Abrir/Recusar
 
-# mercado-web (painel do fornecedor / gate):
-.\scripts\abrir_local.ps1 -Front mercado
+# Só login (tela VAZIA, sem dados):
+.\scripts\abrir_local.ps1                 # negociacao-web, papel COMPRADOR
+.\scripts\abrir_local.ps1 -Front mercado  # mercado-web, papel FORNECEDOR
 
-# escolher papel / empresa, ou só imprimir a URL (sem abrir o navegador):
+# Variações do login limpo:
 .\scripts\abrir_local.ps1 -Role FORNECEDOR
 .\scripts\abrir_local.ps1 -EmpresaId <uuid>
-.\scripts\abrir_local.ps1 -NoBrowser
+.\scripts\abrir_local.ps1 -NoBrowser      # só imprime a URL
 ```
+
+> Sem `-ComDados` a empresa é aleatória e **não tem leilão nenhum** — a tela abre vazia (é só
+> login). Use `-ComDados` quando quiser algo pra clicar/testar. Para o fluxo com 2 lances já
+> postados e o chat aberto, use `.\scripts\demo_gate.ps1` (§6).
 
 <details>
 <summary>Manual (se quiser o token na mão)</summary>
