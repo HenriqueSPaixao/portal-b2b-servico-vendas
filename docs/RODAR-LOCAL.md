@@ -110,25 +110,33 @@ Invoke-RestMethod http://localhost:5006/health    # negociacao
 ## 5. Entrar nas UIs com token (JWT)
 
 O front lê o token de `?jwt=…`, move pro `sessionStorage` e injeta `Authorization: Bearer …`
-em todas as chamadas. Gere um token de dev e cole na URL.
+em todas as chamadas. Você **não precisa copiar/colar token** — um script minta e já abre o
+navegador na URL com o `?jwt=`:
 
-**Recomendado (usa o container, sem instalar nada):**
 ```powershell
-docker cp scripts/mint_jwt.py negociacao-service:/tmp/mint_jwt.py
+# negociacao-web (papel COMPRADOR) — abre o navegador já logado:
+.\scripts\abrir_local.ps1
 
-# token genérico (empresa aleatória, papel FORNECEDOR, vale 24h):
-docker exec negociacao-service python /tmp/mint_jwt.py
+# mercado-web (painel do fornecedor / gate):
+.\scripts\abrir_local.ps1 -Front mercado
 
-# papel COMPRADOR para uma empresa específica:
-docker exec negociacao-service python /tmp/mint_jwt.py <empresa_id> COMPRADOR
+# escolher papel / empresa, ou só imprimir a URL (sem abrir o navegador):
+.\scripts\abrir_local.ps1 -Role FORNECEDOR
+.\scripts\abrir_local.ps1 -EmpresaId <uuid>
+.\scripts\abrir_local.ps1 -NoBrowser
 ```
 
-Cole o token impresso:
-- `http://localhost:8085/?jwt=<token>` — mercado-web
-- `http://localhost:8086/?jwt=<token>` — negociacao-web
+<details>
+<summary>Manual (se quiser o token na mão)</summary>
 
-**Alternativa sem container** (precisa `python-jose` num venv local): `python scripts/gen_jwt.py`
-imprime o token **e as 2 URLs prontas**.
+```powershell
+docker cp scripts/mint_jwt.py negociacao-service:/tmp/mint_jwt.py
+docker exec negociacao-service python /tmp/mint_jwt.py                      # FORNECEDOR, empresa aleatória, 24h
+docker exec negociacao-service python /tmp/mint_jwt.py <empresa_id> COMPRADOR
+```
+Cole na URL: `http://localhost:8085/?jwt=<token>` (mercado) · `http://localhost:8086/?jwt=<token>` (negociacao).
+Sem container: `python scripts/gen_jwt.py` (precisa `python-jose` num venv local) imprime token + URLs.
+</details>
 
 > Para ver uma **proposta pendente** no painel do fornecedor, o `empresa_id` do token tem que
 > ser o do fornecedor dono da oferta. Os scripts de demo (§6) já cuidam disso automaticamente.
