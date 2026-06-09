@@ -26,3 +26,6 @@ _ref/
 # Front-ends embarcados (mercado-web, negociacao-web)
 node_modules/
 .vite/
+
+# Material de instrução do trabalho (não é código; fica fora do repo)
+Instruções Relatório Técnico.pdf
