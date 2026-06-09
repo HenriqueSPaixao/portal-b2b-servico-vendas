@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { NegociacaoApi } from '../api/client.js';
 import { getJwt } from '../lib/jwt-handshake.js';
 import { MODO_COLORS, STATUS_COLORS, truncate, fmtDate, fmtBRL } from '../lib/format.js';
+import { resolveProdutoId } from '../lib/produtos.js';
 import MeusLeiloes from './MeusLeiloes.jsx';
 
 function Badge({ map, value }) {
@@ -35,18 +36,11 @@ export default function ProcessosList() {
     loadProdutos();
   }, []);
 
-  function findProdutoIdByNome(nome) {
-    const alvo = (nome || '').trim().toLowerCase();
-    if (!alvo) return null;
-    const match = produtos.find((p) => (p.nome || '').toLowerCase() === alvo);
-    return match ? match.produto_id : null;
-  }
-
   const query = useMemo(() => {
     const q = { limit: 100 };
     if (status) q.status = status;
     if (modo) q.modo = modo;
-    const produtoId = findProdutoIdByNome(produtoNome);
+    const produtoId = resolveProdutoId(produtoNome, produtos);
     if (produtoId) q.produto_id = produtoId;
     return q;
   }, [status, modo, produtoNome, produtos]);
@@ -112,7 +106,7 @@ export default function ProcessosList() {
             <input
               id="f-produto"
               className="input"
-              placeholder="Nome do produto"
+              placeholder="Nome ou ID do produto"
               value={produtoNome}
               onChange={(e) => setProdutoNome(e.target.value)}
               list="produtos-list-neg"
@@ -122,8 +116,12 @@ export default function ProcessosList() {
               {produtos.map((p) => (
                 <option
                   key={p.produto_id}
-                  value={p.nome || ''}
-                  label={p.codigo ? `código ${p.codigo}` : undefined}
+                  value={p.nome || p.produto_id}
+                  label={
+                    p.nome
+                      ? `id ${truncate(p.produto_id)}${p.codigo ? ` · cód ${p.codigo}` : ''}`
+                      : 'sem nome (busca por id)'
+                  }
                 />
               ))}
             </datalist>

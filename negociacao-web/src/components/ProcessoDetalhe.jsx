@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { NegociacaoApi, streamLancesUrl } from '../api/client.js';
-import { getJwt, currentRole } from '../lib/jwt-handshake.js';
-import { MODO_COLORS, STATUS_COLORS, fmtDate, fmtBRL, fmtQty } from '../lib/format.js';
+import { getJwt, currentRole, currentEmpresaId } from '../lib/jwt-handshake.js';
+import { MODO_COLORS, STATUS_COLORS, truncate, fmtDate, fmtBRL, fmtQty } from '../lib/format.js';
 import LancesChat from './LancesChat.jsx';
 import LanceForm from './LanceForm.jsx';
 
@@ -118,6 +118,23 @@ export default function ProcessoDetalhe() {
   const papelLabel =
     role === 'FORNECEDOR' ? 'Fornecedor' : role === 'COMPRADOR' ? 'Comprador' : null;
 
+  // Estado de encerramento: o lance vencedor é o melhor da lista (maior no direto,
+  // menor no reverso) — mesma regra do backend em _calcular_vencedor. Como cada lance
+  // precisa SUPERAR o anterior, não há empate, então o cálculo aqui é determinístico.
+  const isLeilao = processo?.modo === 'leilao_direto' || processo?.modo === 'leilao_reverso';
+  const encerrado = processo != null && processo.status !== 'ABERTO';
+  const vencedor =
+    isLeilao && lances.length
+      ? lances.reduce((best, l) => {
+          const v = Number(l.valor_unitario);
+          const bv = Number(best.valor_unitario);
+          if (Number.isNaN(v)) return best;
+          return isReverso ? (v < bv ? l : best) : (v > bv ? l : best);
+        }, lances[0])
+      : null;
+  const me = currentEmpresaId();
+  const vencedorMine = vencedor && me && vencedor.empresa_id === me;
+
   return (
     <>
       <div className="mb-4">
@@ -176,14 +193,72 @@ export default function ProcessoDetalhe() {
             </div>
           </div>
 
+          {encerrado && isLeilao && vencedor && (
+            <div className="card border border-brand-green/40 bg-brand-green/5">
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="font-semibold">🏆 Leilão encerrado — lance vencedor</h2>
+                <span className="chip bg-brand-green/15 text-brand-green">
+                  {isReverso ? 'menor preço' : 'maior preço'}
+                </span>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <InfoRow label={isReverso ? 'Fornecedor vencedor' : 'Comprador vencedor'}>
+                  {vencedorMine ? (
+                    <strong className="text-brand-green">Você</strong>
+                  ) : (
+                    <span className="font-mono text-xs" title={vencedor.empresa_id}>
+                      {truncate(vencedor.empresa_id)}
+                    </span>
+                  )}
+                </InfoRow>
+                <InfoRow label="Preço por unidade">
+                  <strong>{fmtBRL(vencedor.valor_unitario)}</strong>
+                </InfoRow>
+                <InfoRow label="Quantidade">{fmtQty(vencedor.quantidade)}</InfoRow>
+                <InfoRow label="Valor total">
+                  {fmtBRL(Number(vencedor.valor_unitario) * Number(vencedor.quantidade))}
+                </InfoRow>
+              </div>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-2">
+                Venceu o {isReverso ? 'menor' : 'maior'} lance entre {lances.length} oferta(s).
+                Ele está destacado na conversa abaixo.
+              </p>
+            </div>
+          )}
+
+          {encerrado && isLeilao && !vencedor && (
+            <div className="card border border-amber-500/40 bg-amber-500/5">
+              <h2 className="font-semibold mb-1">Leilão encerrado sem propostas</h2>
+              <p className="text-sm text-zinc-600 dark:text-zinc-300">
+                O prazo terminou e <strong>ninguém deu lance</strong> neste leilão — ele fechou
+                <strong> sem vencedor</strong> e nada foi negociado. É um desfecho válido: um
+                leilão pode encerrar vazio.
+              </p>
+            </div>
+          )}
+
+          {encerrado && processo.modo === 'direto' && (
+            <div className="card">
+              <h2 className="font-semibold mb-1">Venda direta concluída</h2>
+              <p className="text-sm text-zinc-600 dark:text-zinc-300">
+                Modo de venda direta: fechou automaticamente ao preço de referência, sem disputa
+                de lances.
+              </p>
+            </div>
+          )}
+
           <div className="card">
             <div className="flex items-center justify-between mb-3">
               <h2 className="font-semibold">Negociação — fornecedor e comprador</h2>
               <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                {processo.lances?.length || 0} lance(s) · ao vivo (tempo real)
+                {processo.lances?.length || 0} lance(s)
+                {encerrado ? ' · encerrado' : ' · ao vivo (tempo real)'}
               </span>
             </div>
-            <LancesChat lances={processo.lances || []} />
+            <LancesChat
+              lances={processo.lances || []}
+              vencedorId={encerrado ? vencedor?.id : null}
+            />
           </div>
 
           {processo.status === 'ABERTO' && bidderRole && (
@@ -221,6 +296,12 @@ export default function ProcessoDetalhe() {
               ) : (
                 <p className="text-sm text-zinc-600 dark:text-zinc-300">
                   Ninguém deu lance ainda. Faça a primeira oferta!
+                </p>
+              )}
+              {melhorLance == null && (
+                <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">
+                  Se ninguém der lance até o encerramento, o leilão fecha <strong>sem
+                  proposta</strong> (sem vencedor).
                 </p>
               )}
               {processo.quantidade != null && (

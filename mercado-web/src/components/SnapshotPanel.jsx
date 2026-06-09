@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { MercadoApi } from '../api/client.js';
+import { resolveProdutoId, shortId } from '../lib/produtos.js';
 
 export default function SnapshotPanel() {
   const [produtos, setProdutos] = useState([]);
@@ -21,21 +22,14 @@ export default function SnapshotPanel() {
     loadProdutos();
   }, []);
 
-  function findProdutoIdByNome(nome) {
-    const alvo = (nome || '').trim().toLowerCase();
-    if (!alvo) return null;
-    const match = produtos.find((p) => (p.nome || '').toLowerCase() === alvo);
-    return match ? match.produto_id : null;
-  }
-
   async function handleSubmit(e) {
     e.preventDefault();
     setError(null);
     setData(null);
-    const produtoId = findProdutoIdByNome(nomeBusca);
+    const produtoId = resolveProdutoId(nomeBusca, produtos);
     if (!produtoId) {
       setError(
-        'Produto não encontrado. Digite o nome exato como aparece na lista de sugestões.'
+        'Produto não encontrado. Digite o nome exato (como nas sugestões) ou o ID do produto.'
       );
       return;
     }
@@ -76,18 +70,22 @@ export default function SnapshotPanel() {
           type="text"
           value={nomeBusca}
           onChange={(e) => setNomeBusca(e.target.value)}
-          placeholder="Nome do produto"
+          placeholder="Nome ou ID do produto"
           className="input"
           list="produtos-list"
-          aria-label="Nome do produto"
+          aria-label="Nome ou ID do produto"
           autoComplete="off"
         />
         <datalist id="produtos-list">
           {produtos.map((p) => (
             <option
               key={p.produto_id}
-              value={p.nome || ''}
-              label={p.codigo ? `código ${p.codigo}` : undefined}
+              value={p.nome || p.produto_id}
+              label={
+                p.nome
+                  ? `id ${shortId(p.produto_id)}${p.codigo ? ` · cód ${p.codigo}` : ''}`
+                  : 'sem nome (busca por id)'
+              }
             />
           ))}
         </datalist>
