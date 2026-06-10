@@ -9,8 +9,10 @@ from app.matching.consumers import MercadoConsumers
 from app.matching.engine import MatchingEngine
 from app.matching.snapshot import Snapshot
 from app.produto_cache import ProdutoCache
+from app.produto_nome_resolver import ProdutoNomeResolver
 from app.routes import router as mercado_router
 from b2b_shared.auth.jwt import JWTValidator
+from b2b_shared.db import build_engine, build_session_factory
 from b2b_shared.events import Topic
 from b2b_shared.health import build_health_router
 from b2b_shared.kafka import KafkaConsumerRunner, KafkaProducer
@@ -37,6 +39,17 @@ async def lifespan(app: FastAPI):
 
     snapshot = Snapshot()
     produto_cache = ProdutoCache()
+
+    # Engine de banco usado SÓ para enriquecer o NOME do produto na exibição
+    # (lê a tabela compartilhada produtos_produto quando o produto_cadastrado via
+    # Kafka não chegou). O matching continua 100% Kafka. Conexão lazy (não conecta
+    # no boot); se o banco falhar, o produto aparece por id (best-effort).
+    db_engine = build_engine(settings.database_url)
+    session_factory = build_session_factory(db_engine)
+    produto_nome_resolver = ProdutoNomeResolver(
+        session_factory, schema=settings.db_schema, cache=produto_cache
+    )
+
     engine = MatchingEngine(
         snapshot=snapshot,
         producer=producer,
@@ -45,7 +58,10 @@ async def lifespan(app: FastAPI):
         default_auction_duration_seconds=settings.mercado_default_auction_duration_seconds,
     )
     consumers = MercadoConsumers(
-        snapshot=snapshot, engine=engine, produto_cache=produto_cache
+        snapshot=snapshot,
+        engine=engine,
+        produto_cache=produto_cache,
+        produto_nome_resolver=produto_nome_resolver,
     )
 
     # Forward-only (Opção A): o mercado casa apenas eventos NOVOS, a partir do fim
@@ -83,6 +99,7 @@ async def lifespan(app: FastAPI):
     app.state.producer = producer
     app.state.snapshot = snapshot
     app.state.produto_cache = produto_cache
+    app.state.session_factory = session_factory
     app.state.matching_engine = engine
     app.state.service_name = settings.service_name
     app.state.jwt_validator = JWTValidator(
@@ -98,6 +115,7 @@ async def lifespan(app: FastAPI):
     finally:
         await consumer_runner.stop()
         await producer.stop()
+        await db_engine.dispose()
         log.info("mercado-service stopped")
 
 

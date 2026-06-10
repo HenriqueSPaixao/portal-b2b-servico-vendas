@@ -5,6 +5,7 @@ from uuid import UUID
 from app.matching.engine import MatchingEngine
 from app.matching.snapshot import Demanda, Oferta, Snapshot
 from app.produto_cache import ProdutoCache
+from app.produto_nome_resolver import ProdutoNomeResolver
 from b2b_shared.events import EventEnvelope
 
 logger = logging.getLogger(__name__)
@@ -26,10 +27,24 @@ class MercadoConsumers:
         snapshot: Snapshot,
         engine: MatchingEngine,
         produto_cache: ProdutoCache,
+        produto_nome_resolver: ProdutoNomeResolver | None = None,
     ) -> None:
         self._snapshot = snapshot
         self._engine = engine
         self._produto_cache = produto_cache
+        self._produto_nome_resolver = produto_nome_resolver
+
+    async def _registrar_produto(self, produto_id) -> None:
+        """Garante o produto no cache, com nome quando possível.
+
+        Com resolver (banco): busca nome/código em `produtos_produto` (best-effort).
+        Sem resolver: só registra por id (`ensure`). Em ambos, o produto fica
+        visível mesmo sem `produto_cadastrado` da Eq.2.
+        """
+        if self._produto_nome_resolver is not None:
+            await self._produto_nome_resolver.ensure_nome(produto_id)
+        else:
+            self._produto_cache.ensure(produto_id)
 
     async def handle_produto_cadastrado(self, envelope: EventEnvelope) -> None:
         # Payload do produtos-service (Eq.1 / Raíky) — camelCase. Aceitamos
@@ -76,8 +91,7 @@ class MercadoConsumers:
             )
             return
         self._snapshot.upsert_oferta(oferta)
-        # Torna o produto visível mesmo sem produto_cadastrado da Eq.1.
-        self._produto_cache.ensure(oferta.produto_id)
+        await self._registrar_produto(oferta.produto_id)
         await self._engine.evaluate(oferta.produto_id)
 
     async def handle_estoque_atualizado(self, envelope: EventEnvelope) -> None:
@@ -146,8 +160,7 @@ class MercadoConsumers:
             )
             return
         self._snapshot.upsert_demanda(demanda)
-        # Torna o produto visível mesmo sem produto_cadastrado da Eq.1.
-        self._produto_cache.ensure(demanda.produto_id)
+        await self._registrar_produto(demanda.produto_id)
         await self._engine.evaluate(demanda.produto_id)
 
     async def handle_demanda_recorrente_gerada(self, envelope: EventEnvelope) -> None:
