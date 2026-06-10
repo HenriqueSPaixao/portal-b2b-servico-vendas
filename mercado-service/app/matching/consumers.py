@@ -76,6 +76,8 @@ class MercadoConsumers:
             )
             return
         self._snapshot.upsert_oferta(oferta)
+        # Torna o produto visível mesmo sem produto_cadastrado da Eq.1.
+        self._produto_cache.ensure(oferta.produto_id)
         await self._engine.evaluate(oferta.produto_id)
 
     async def handle_estoque_atualizado(self, envelope: EventEnvelope) -> None:
@@ -131,6 +133,8 @@ class MercadoConsumers:
             )
             return
         self._snapshot.upsert_demanda(demanda)
+        # Torna o produto visível mesmo sem produto_cadastrado da Eq.1.
+        self._produto_cache.ensure(demanda.produto_id)
         await self._engine.evaluate(demanda.produto_id)
 
     async def handle_demanda_recorrente_gerada(self, envelope: EventEnvelope) -> None:

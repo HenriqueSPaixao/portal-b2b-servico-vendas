@@ -1,4 +1,6 @@
 import logging
+import socket
+import uuid
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -48,9 +50,24 @@ async def lifespan(app: FastAPI):
         snapshot=snapshot, engine=engine, produto_cache=produto_cache
     )
 
+    # O mercado-service mantém TODO o estado (snapshot de oferta/demanda +
+    # ProdutoCache) em memória — é uma projeção volátil do log de eventos, não
+    # um banco. Por isso cada instância precisa reler o log INTEIRO a cada boot e
+    # enxergar TODAS as partições. Um group_id estável quebra as duas coisas: no
+    # restart o consumer volta do offset commitado (sem replay → estado vazio) e,
+    # com réplicas, o group divide as partições entre elas (cada uma com um pedaço
+    # do estado, e o gateway sorteando qual responde). Um group_id único por
+    # processo resolve ambos: sem offset commitado, auto_offset_reset=earliest
+    # reprocessa desde o início; e cada instância fica sozinha no seu group →
+    # recebe todas as partições. Prefixo mantido p/ a infra reconhecer
+    # (mercado-service-group-*). Contraste: negociacao-service persiste em
+    # Postgres, então mantém group estável (não deve reprocessar tudo no boot).
+    consumer_group_id = (
+        f"{settings.service_name}-group-{socket.gethostname()}-{uuid.uuid4().hex[:8]}"
+    )
     consumer_runner = KafkaConsumerRunner(
         bootstrap_servers=settings.kafka_bootstrap_servers,
-        group_id=f"{settings.service_name}-group",
+        group_id=consumer_group_id,
         client_id=f"{settings.kafka_client_id_prefix}-{settings.service_name}-consumer",
         handlers={
             Topic.PRODUTO_CADASTRADO.value: consumers.handle_produto_cadastrado,

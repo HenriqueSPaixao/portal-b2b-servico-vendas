@@ -31,9 +31,12 @@ class Demanda:
 class Snapshot:
     """Estado in-memory de ofertas e demandas indexadas por produto_id.
 
-    Reconstrução: o consumer inicia com auto.offset.reset=earliest. Eventos
-    são reaplicados; o estado consumido fica perdido caso o tópico não tenha
-    log compaction, mas para o trabalho acadêmico é suficiente.
+    Reconstrução: como o consumer usa group_id único por processo (ver
+    `app/main.py`), todo boot relê o log inteiro desde o início e reaplica os
+    eventos — o estado é reconstruído por completo em cada instância. O estado
+    já consumido/casado é reproduzido a partir dos eventos do log; sem log
+    compaction algumas reservas podem reaparecer, mas para o trabalho acadêmico
+    é suficiente.
     """
 
     ofertas_por_produto: dict[UUID, dict[UUID, Oferta]] = field(default_factory=dict)

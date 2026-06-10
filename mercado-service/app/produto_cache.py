@@ -16,8 +16,14 @@ class ProdutoCache:
 
     Alimentado consumindo `produto_cadastrado` (Eq.1 Produtos / Raíky).
     Mantém o mercado-service desacoplado: ele nunca chama produtos-service via
-    REST; tudo vem do Kafka. Reconstrói no restart graças a
-    `auto_offset_reset=earliest` no consumer runner.
+    REST; tudo vem do Kafka. Reconstrói por completo a cada boot — o consumer
+    usa group_id único por processo e relê o log inteiro desde o início (ver
+    comentário em `app/main.py`).
+
+    Resiliência: quando chega oferta/demanda de um produto cujo
+    `produto_cadastrado` ainda não foi publicado, `ensure` registra o produto
+    sem nome — assim o mercado aparece com o que tem (busca por id) em vez de
+    ficar vazio só porque o catálogo do upstream atrasou.
     """
 
     _items: dict[UUID, ProdutoInfo] = field(default_factory=dict)
@@ -27,6 +33,17 @@ class ProdutoCache:
         with self._lock:
             self._items[produto_id] = ProdutoInfo(
                 produto_id=produto_id, nome=nome, codigo=codigo
+            )
+
+    def ensure(self, produto_id: UUID) -> None:
+        """Registra o produto como conhecido (sem nome) se ainda não existe.
+
+        Chamado ao consumir oferta/demanda. Nunca sobrescreve um nome já
+        preenchido: se o `produto_cadastrado` chegar depois, `set` completa.
+        """
+        with self._lock:
+            self._items.setdefault(
+                produto_id, ProdutoInfo(produto_id=produto_id, nome=None, codigo=None)
             )
 
     def get(self, produto_id: UUID) -> ProdutoInfo | None:
