@@ -16,9 +16,9 @@ class ProdutoCache:
 
     Alimentado consumindo `produto_cadastrado` (Eq.1 Produtos / Raíky).
     Mantém o mercado-service desacoplado: ele nunca chama produtos-service via
-    REST; tudo vem do Kafka. Reconstrói por completo a cada boot — o consumer
-    usa group_id único por processo e relê o log inteiro desde o início (ver
-    comentário em `app/main.py`).
+    REST; tudo vem do Kafka. Forward-only (auto_offset_reset=latest): só popula
+    com o `produto_cadastrado` que chegar com o serviço de pé — o histórico não é
+    reprocessado (ver comentário em `app/main.py`).
 
     Resiliência: quando chega oferta/demanda de um produto cujo
     `produto_cadastrado` ainda não foi publicado, `ensure` registra o produto

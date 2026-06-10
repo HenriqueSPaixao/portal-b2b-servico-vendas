@@ -108,21 +108,34 @@ class MercadoConsumers:
         await self._engine.evaluate(produto_id)
 
     async def handle_demanda_criada(self, envelope: EventEnvelope) -> None:
+        # Aceita snake_case (o que o demanda-service / modulo-compradores publica
+        # hoje) e camelCase (idDemanda/idProduto/quantidadeDesejada — formato dos
+        # exemplos do guia da Infra), por compatibilidade defensiva.
         p = envelope.payload
         try:
             demanda = Demanda(
-                demanda_id=UUID(p.get("id_demanda") or p["id"]),
-                produto_id=UUID(p.get("id_produto") or p["produto_id"]),
+                demanda_id=UUID(
+                    p.get("id_demanda") or p.get("idDemanda") or p["id"]
+                ),
+                produto_id=UUID(
+                    p.get("id_produto") or p.get("idProduto") or p["produto_id"]
+                ),
                 # Opcional: a Eq.4 não envia o id do comprador e nosso próprio schema
                 # marca como opcional. Não derruba o evento se faltar.
                 empresa_comprador_id=_uuid_or_none(
-                    p.get("id_empresa_comprador") or p.get("empresa_comprador_id")
+                    p.get("id_empresa_comprador")
+                    or p.get("idEmpresaComprador")
+                    or p.get("empresa_comprador_id")
                 ),
                 quantidade=_decimal(
-                    p.get("quantidade_desejada") or p.get("quantidade")
+                    p.get("quantidade_desejada")
+                    or p.get("quantidadeDesejada")
+                    or p.get("quantidade")
                 ),
                 preco_maximo=(
-                    _decimal(p["preco_maximo"]) if p.get("preco_maximo") else None
+                    _decimal(p.get("preco_maximo") or p.get("precoMaximo"))
+                    if (p.get("preco_maximo") or p.get("precoMaximo"))
+                    else None
                 ),
                 is_recorrente=bool(p.get("is_recorrente", False)),
             )

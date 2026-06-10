@@ -31,12 +31,11 @@ class Demanda:
 class Snapshot:
     """Estado in-memory de ofertas e demandas indexadas por produto_id.
 
-    Reconstrução: como o consumer usa group_id único por processo (ver
-    `app/main.py`), todo boot relê o log inteiro desde o início e reaplica os
-    eventos — o estado é reconstruído por completo em cada instância. O estado
-    já consumido/casado é reproduzido a partir dos eventos do log; sem log
-    compaction algumas reservas podem reaparecer, mas para o trabalho acadêmico
-    é suficiente.
+    Volátil e forward-only: o consumer lê apenas eventos novos
+    (auto_offset_reset=latest, ver `app/main.py`), então o snapshot reflete o que
+    chegou desde que o serviço subiu. Reiniciar recomeça do último commit — o
+    histórico NÃO é reprocessado (de propósito: reprocessar re-dispararia matching
+    antigo, duplicando leilões na negociação). Requer instância única.
     """
 
     ofertas_por_produto: dict[UUID, dict[UUID, Oferta]] = field(default_factory=dict)

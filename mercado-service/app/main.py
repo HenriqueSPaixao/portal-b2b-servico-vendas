@@ -1,6 +1,4 @@
 import logging
-import socket
-import uuid
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -50,25 +48,23 @@ async def lifespan(app: FastAPI):
         snapshot=snapshot, engine=engine, produto_cache=produto_cache
     )
 
-    # O mercado-service mantém TODO o estado (snapshot de oferta/demanda +
-    # ProdutoCache) em memória — é uma projeção volátil do log de eventos, não
-    # um banco. Por isso cada instância precisa reler o log INTEIRO a cada boot e
-    # enxergar TODAS as partições. Um group_id estável quebra as duas coisas: no
-    # restart o consumer volta do offset commitado (sem replay → estado vazio) e,
-    # com réplicas, o group divide as partições entre elas (cada uma com um pedaço
-    # do estado, e o gateway sorteando qual responde). Um group_id único por
-    # processo resolve ambos: sem offset commitado, auto_offset_reset=earliest
-    # reprocessa desde o início; e cada instância fica sozinha no seu group →
-    # recebe todas as partições. Prefixo mantido p/ a infra reconhecer
-    # (mercado-service-group-*). Contraste: negociacao-service persiste em
-    # Postgres, então mantém group estável (não deve reprocessar tudo no boot).
-    consumer_group_id = (
-        f"{settings.service_name}-group-{socket.gethostname()}-{uuid.uuid4().hex[:8]}"
-    )
+    # Forward-only (Opção A): o mercado casa apenas eventos NOVOS, a partir do fim
+    # do log no boot. NÃO reprocessa o histórico — reprocessar re-casaria
+    # oferta/demanda antigas e re-publicaria `leilao_iniciado`/`modo_negociacao_
+    # definido`, gerando processos duplicados na negociação. group_id NOVO (-live)
+    # + auto_offset_reset="latest": sem offset commitado o consumer começa no fim
+    # (só eventos novos); a partir daí retoma do último commit (não perde eventos
+    # que chegarem com o serviço de pé, e não relê o passado).
+    #
+    # IMPORTANTE (estado em memória + publica eventos): o mercado-service deve
+    # rodar como UMA ÚNICA instância. Com 2 réplicas (deploy redundante nas 2 VMs)
+    # cada uma casaria e publicaria o mesmo match → leilões em dobro. Ver mapa de
+    # integração / alinhar deploy de instância única com a Infra.
     consumer_runner = KafkaConsumerRunner(
         bootstrap_servers=settings.kafka_bootstrap_servers,
-        group_id=consumer_group_id,
+        group_id=f"{settings.service_name}-group-live",
         client_id=f"{settings.kafka_client_id_prefix}-{settings.service_name}-consumer",
+        auto_offset_reset="latest",
         handlers={
             Topic.PRODUTO_CADASTRADO.value: consumers.handle_produto_cadastrado,
             Topic.FORNECIMENTO_CRIADO.value: consumers.handle_fornecimento_criado,
